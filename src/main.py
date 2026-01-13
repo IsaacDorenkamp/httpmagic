@@ -23,6 +23,8 @@ def main(stdscr: curses.window) -> int:
         begin_debug_mode()
 
     colors.initialize()
+    curses.set_escdelay(25)
+
     instance = app.App(stdscr)
     return instance.run()
 

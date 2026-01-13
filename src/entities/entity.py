@@ -1,105 +1,94 @@
 from __future__ import annotations
 import collections.abc
+import enum
 import json
+import types
 import typing
-
-import logging
 
 
 T = typing.TypeVar("T")
 
 
-class Field(typing.Generic[T]):
+NONE_TYPE = type(None)
+NULL = object()
+
+
+class FieldInfo:
     name: str
-    tp: type
+    types: tuple[type, ...]
+    optional: bool
+    default: tuple[bool, typing.Any]
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, optional: bool = False, default: typing.Any = NULL):
         self.name = name
-        self.tp = type(None)
+        self.optional = optional
 
-    @property
-    def is_entity(self):
-        proper_type = getattr(self.tp, "__origin__", self.tp)
-        logging.debug("PROPER TYPE:", proper_type)
-        # TODO: figure out
-        return issubclass(proper_type, Entity)
+        if default is not NULL:
+            self.default = True, default
+        else:
+            self.default = False, None
 
-    def convert(self, value: typing.Any):
-        if self.is_entity:
-            if type(value) == self.tp:
+    def validate(self, value: typing.Any):
+        exact_type = type(value)
+        if exact_type in self.types:
+            return value
+
+        for valid_type in self.types:
+            validated = self.validate_single(valid_type, value)
+            if validated is not NULL:
+                return validated
+
+        raise TypeError("value '%s' does not match field type %s" % (str(value), str(self)))
+
+    def __str__(self) -> str:
+        result = " | ".join(tp.__name__ for tp in self.types)
+        if self.optional:
+            result = f"Optional[{result}]"
+        return result
+
+    def validate_single(self, single_type: type, value: typing.Any):
+        origin_type = getattr(single_type, "__origin__", single_type)
+        if self.optional and value is None:
+            return None
+
+        if issubclass(origin_type, Entity) and isinstance(value, dict):
+            try:
+                return single_type(**value)
+            except (TypeError, ValueError):
+                return NULL
+        elif issubclass(origin_type, enum.Enum):
+            return origin_type(value)
+        elif issubclass(origin_type, collections.abc.Sequence):
+            if isinstance(value, collections.abc.Iterable):
+                return self.validate_sequence(single_type, value)
+            else:
+                raise TypeError("A Sequence type requires an Iterable value!")
+        elif issubclass(origin_type, collections.abc.Mapping):
+            if isinstance(value, collections.abc.Mapping):
+                return self.validate_mapping(single_type, value)
+            else:
+                raise TypeError("A Mapping type requires a Mapping value!")
+        else:
+            if isinstance(value, origin_type):
                 return value
-            elif isinstance(value, dict):
-                return self.tp(**value)
             else:
-                raise TypeError("Cannot convert type '%s' to entity type '%s'" % (type(value), self.tp))
+                raise TypeError("'%s' does not validly belong to type %s" % (value, single_type))
+
+    def validate_sequence(self, seq_type: type, value: typing.Iterable):
+        if hasattr(seq_type, "__args__"):
+            # validate element types
+            element_type = seq_type.__args__[0]
+            return seq_type(self.validate_single(element_type, element) for element in value)
         else:
-            if self.tp in (int, float):
-                if type(value) in (int, float):
-                    return self.tp(value)
-                else:
-                    raise TypeError("value must be numerical")
-            elif self.tp == str:
-                if type(value) != str:
-                    raise TypeError("value is not a str")
-                return value
-            elif hasattr(self.tp, "__origin__") and issubclass(self.tp.__origin__, collections.abc.Sequence):
-                return Field.convert_sequence(self.tp, value)
-            elif hasattr(self.tp, "__origin__") and issubclass(self.tp.__origin__, collections.abc.Mapping):
-                return Field.convert_mapping(self.tp, value)
-            else:
-                return self.tp(value)
+            return seq_type(value)
 
-    @staticmethod
-    def convert_sequence(tp, value):
-        if hasattr(tp, "__origin__"):
-            element_type = tp.__args__[0]
-            raw_type = getattr(element_type, "__origin__", element_type)
-            if issubclass(raw_type, collections.abc.Sequence):
-                return tp(Field.convert_sequence(element_type, element) for element in value)
-            elif issubclass(raw_type, collections.abc.Mapping):
-                return tp(Field.convert_mapping(element_type, element) for element in value)
-            else:
-                if any(not isinstance(element, raw_type) for element in value):
-                    raise TypeError("all elements must match type %s" % tp)
-                return tp(value)
+    def validate_mapping(self, mapping_type: type, value: typing.Mapping):
+        if hasattr(mapping_type, "__args__"):
+            # validate keys and values
+            key_type, value_type = mapping_type.__args__
+            return mapping_type({ self.validate_single(key_type, key): self.validate_single(value_type, value) for key, value in value.items() })
         else:
-            if not isinstance(value, tp):
-                raise TypeError("value does not match type %s" % tp)
-            return tp(value) 
-
-    @staticmethod
-    def convert_mapping(tp, value):
-        if hasattr(tp, "__origin__"):
-            if not isinstance(value, tp.__origin__):
-                raise TypeError("value does not match type %s" % tp)
-            key_type = tp.__args__[0]
-            value_type = tp.__args__[1]
-
-            raw_key_type = getattr(key_type, "__origin__", key_type)
-            raw_value_type = getattr(value_type, "__origin__", value_type)
-            if issubclass(raw_key_type, collections.abc.Sequence):
-                keys = [Field.convert_sequence(key_type, element) for element in value.keys()]
-            elif issubclass(raw_key_type, collections.abc.Mapping):
-                keys = [Field.convert_mapping(key_type, element) for element in value.keys()]
-            else:
-                if any(not isinstance(element, raw_key_type) for element in value.keys()):
-                    raise TypeError("all elements must match type %s" % tp)
-                keys = list(value.keys())
-
-            if issubclass(raw_value_type, collections.abc.Sequence):
-                values = [Field.convert_sequence(value_type, element) for element in value.values()]
-            elif issubclass(raw_value_type, collections.abc.Mapping):
-                values = [Field.convert_mapping(value_type, element) for element in value.values()]
-            else:
-                if any(not isinstance(element, raw_value_type) for element in value.values()):
-                    raise TypeError("all elements must match type %s" % tp)
-                values = list(value.values())
-
-            return {key: value for (key, value) in zip(keys, values)}
-        else:
-            if not isinstance(value, tp):
-                raise TypeError("value does not match type %s" % tp)
-            return tp(value)
+            return mapping_type(value)
 
 
 class EntityMeta(type):
@@ -115,12 +104,24 @@ class EntityMeta(type):
             # check if user has manually defined this
             if hasattr(new_type, name):
                 field = getattr(new_type, name)
-                if not isinstance(field, Field):
+                if not isinstance(field, FieldInfo):
                     raise TypeError("Expected a Field instance, got %s" % field)
                 new_type.__fields__[name] = getattr(new_type, name)
             else:
-                new_type.__fields__[name] = Field(name)
-            new_type.__fields__[name].tp = field_type
+                new_type.__fields__[name] = FieldInfo(name)
+
+            if not new_type.__fields__[name].name:
+                new_type.__fields__[name].name = name
+
+            origin_field_type = getattr(field_type, "__origin__", field_type)
+            if isinstance(origin_field_type, types.UnionType) or origin_field_type is typing.Union:
+                field_types = field_type.__args__
+                if NONE_TYPE in field_types:
+                    field_types = tuple(tp for tp in field_types if tp is not NONE_TYPE)
+                    new_type.__fields__[name].optional = True
+                new_type.__fields__[name].types = field_types
+            else:
+                new_type.__fields__[name].types = (field_type,)
 
         for name, value in args[2].items():
             if name.startswith("__") and name.endswith("__"):
@@ -129,7 +130,7 @@ class EntityMeta(type):
             if callable(value):
                 continue
 
-            if not isinstance(value, Field):
+            if not isinstance(value, FieldInfo):
                 raise TypeError("Expected a Field instance, got %s (%s)" % (value, name))
 
             if name not in new_type.__fields__:
@@ -139,14 +140,17 @@ class EntityMeta(type):
 
 
 class Entity(metaclass=EntityMeta):
-    __fields__: typing.ClassVar[dict[str, Field]]
+    __fields__: typing.ClassVar[dict[str, FieldInfo]]
 
     def __init__(self, **kwargs):
         for key, field in self.__fields__.items():
             if key not in kwargs:
+                if field.default[0]:
+                    setattr(self, key, field.default[1])
+                    continue
                 raise ValueError(f"missing value for field '{key}'")
 
-            setattr(self, key, field.convert(kwargs[key]))
+            setattr(self, key, field.validate(kwargs[key]))
             kwargs.pop(key)
             
         if kwargs:
@@ -179,6 +183,14 @@ class EntityDecoder(json.JSONDecoder, typing.Generic[EntityType]):
         entity_type = self.__args__[0]
         values = dict(pairs)
         for key, field in entity_type.items():
-            values[key] = field.convert(values[key])
+            values[key] = field.validate(values[key])
         return values
+
+
+def Field(
+    name: str | None = None,
+    optional: bool = False,
+    default: typing.Any = NULL,
+) -> typing.Any:
+    return FieldInfo(name or "", optional, default)
 

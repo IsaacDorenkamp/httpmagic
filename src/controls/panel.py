@@ -10,15 +10,15 @@ class Panel(Control):
     _size: tuple[int, int]
 
     def __init__(self, parent: curses.window, location: tuple[int, int], size: tuple[int, int]):
+        super().__init__()
         self._win = parent.derwin(*size, *location)
         self._win.border()
         self._win.refresh()
         self._location = location
         self._size = size
 
-    def repaint(self):
+    def render(self):
         self._win.border()
-        self._win.refresh()
 
     @property
     def pane_location(self) -> tuple[int, int]:

@@ -14,7 +14,7 @@ class LineEdit(Control):
 
     def __init__(self, stdscr: curses.window, location: tuple[int, int], width: int):
         super().__init__()
-        self._win = stdscr.derwin(1, width, *location)
+        self._create_window(stdscr, (1, width), location)
         self._width = width
         self._location = location
         self._text = ""
@@ -25,23 +25,22 @@ class LineEdit(Control):
         self._text = text
         self._cursor = len(self._text)
         self._offset = max(self._cursor, self._width) - self._width
-        self.redraw()
+        self.repaint()
 
     def get_text(self) -> str:
         return self._text
 
-    def redraw(self):
+    def render(self):
         portion = self._text[self._offset:self._offset+self._width]
-        self._win.erase()
+        self._win.clear()
         try:
-            self._win.addstr(0, 0, portion)
-        except:
+            with self.usecolor(self._win):
+                self._win.addstr(0, 0, portion)
+        except curses.error:
             pass
 
         if self.focused:
             self._win.move(0, self._cursor - self._offset)
-
-        self._win.refresh()
 
     def handle_input(self, ch: int):
         redraw = True
@@ -61,7 +60,7 @@ class LineEdit(Control):
 
         if redraw:
             self.__pull_offset()
-            self.redraw()
+            self.repaint()
 
     def __pull_offset(self):
         if self._cursor == len(self._text):
