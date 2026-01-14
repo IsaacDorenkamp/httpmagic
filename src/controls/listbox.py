@@ -2,8 +2,6 @@ import bisect
 import curses
 import typing
 
-import logging
-
 import colors
 import util
 

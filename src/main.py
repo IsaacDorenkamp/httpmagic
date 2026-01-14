@@ -1,6 +1,7 @@
 import argparse
 import curses
 import logging
+import signal
 
 import app
 import colors
@@ -17,10 +18,18 @@ def begin_debug_mode():
     logging.debug("DEBUG MODE STARTED")
 
 
+def disable_ctrl_c():
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
 def main(stdscr: curses.window) -> int:
     options = load_options()
     if options.debug:
         begin_debug_mode()
+
+    disable_ctrl_c()
+
+    curses.raw()
 
     colors.initialize()
     curses.set_escdelay(25)

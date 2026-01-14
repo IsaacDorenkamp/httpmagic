@@ -47,7 +47,6 @@ def parse_arguments(raw_arguments: str, argument_definition: list[str]):
             case ParseState.argument:
                 if ch.isspace():
                     state = ParseState.expecting
-                    logging.debug("argument: %s" % argument.getvalue())
                     arguments.append(argument.getvalue())
                     argument = io.StringIO()
                 elif ch == '"':
@@ -79,8 +78,6 @@ def parse_arguments(raw_arguments: str, argument_definition: list[str]):
         raise CommandError("Missing closing quote!")
     elif state == ParseState.argument:
         arguments.append(argument.getvalue())
-
-    logging.debug("arguments: %s" % str(arguments))
 
     parsed_arguments = {}
     for raw_arg_name, arg_value in itertools.zip_longest(argument_definition, arguments):
@@ -133,7 +130,7 @@ def command_new_collection(args: dict[str, str], app: App):
     app.create_collection(name, True)
 
 
-@register("exit", [])
+@register("q", [])
 def command_exit(_, app: App):
     app.quit()
 

@@ -18,3 +18,4 @@ class AppContext(Entity):
     @staticmethod
     def create():
         return AppContext(settings=Settings(), collections=[], active_collection=None, active_request=None)
+

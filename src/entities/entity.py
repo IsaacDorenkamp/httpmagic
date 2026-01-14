@@ -1,5 +1,6 @@
 from __future__ import annotations
 import collections.abc
+import copy
 import enum
 import json
 import types
@@ -156,6 +157,9 @@ class Entity(metaclass=EntityMeta):
         if kwargs:
             keys = list(kwargs.keys())
             raise ValueError(f"entity {self.__name__} has no field {keys[0]}")
+
+    def copy(self):
+        return copy.deepcopy(self)
 
 
 class EntityEncoder(json.JSONEncoder):

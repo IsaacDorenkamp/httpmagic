@@ -4,11 +4,13 @@ import enum
 import colors
 import commands
 import controls
+import executor
 from entities.context import AppContext
 from entities.request import Collection, Request
 import util
 
 from views.request_view import RequestView
+from views.response_view import ResponseView
 
 
 class Mode(enum.Enum):
@@ -22,6 +24,7 @@ class App:
     __mode: Mode
     __running: bool
 
+    # UI
     __collection_pane: controls.Panel
     __collection: controls.ListBox
     __command: controls.LineEdit
@@ -30,6 +33,10 @@ class App:
 
     __focus: controls.Control | None
 
+    # Internal
+    __executor: executor.RequestExecutor
+
+    # Public
     context: AppContext
 
     def __init__(self, stdscr: curses.window):
@@ -55,7 +62,9 @@ class App:
         self.__collection_name.underline = True
         self.__collection = controls.ListBox(self.__collection_pane.window, (2, 1), (pane_size[0] - 1, pane_size[1]))
 
-        self.__request_pane = RequestView(stdscr, (0, 50), (bounds[0] - 2, bounds[1] - 50))
+        pane_width = (bounds[1] - 50) // 2
+        self.__request_pane = RequestView(self, (0, 50), (bounds[0] - 2, pane_width))
+        self.__response_pane = ResponseView(self,(0, 50 + pane_width), (bounds[0] - 2, pane_width))
 
         self.__status  = controls.Label(stdscr, (bounds[0] - 2, 0), (1, bounds[1]))
         self.__status.background = colors.parse_color(self.context.settings.colors.contrast)
@@ -63,15 +72,16 @@ class App:
         self.__command = controls.LineEdit(stdscr, (bounds[0] - 1, 0), bounds[1])
 
         self.__focus = None
-        self.set_focus(self.__collection)
+        self.__executor = executor.RequestExecutor()
 
-        self.create_collection("Unsorted", True)
+        self.create_collection("Unsorted Collection", True)
 
         # renders
-        self.__request_pane.render()
-        self.__collection_name.render()
-        self.__collection.render()
-        self.__status.render()
+        self.__request_pane.repaint()
+        self.__response_pane.repaint()
+        self.__collection_name.repaint()
+        self.__collection.repaint()
+        self.__status.repaint()
 
     def update_focus(self):
         if self.__focus is not None and not self.__focus.focused:
@@ -98,13 +108,17 @@ class App:
                 if next != -1:
                     continue
             elif ch == -1:
+                self.update_focus()
                 continue
 
             if self.__mode == Mode.control:
-                if ch == ord(':'):
+                can_take_focus = self.__focus is None or (self.__focus is not None and not self.__focus.focus_greedy)
+                if ch == ord(':') and can_take_focus:
                     self.begin_command()
                 elif self.__focus is not None:
                     self.__focus.handle_input(ch)
+                else:
+                    self.__request_pane.handle_input(ch)
             else:
                 if ch == ord('\n'):
                     self.execute_command()
@@ -122,18 +136,21 @@ class App:
     def begin_command(self):
         self.__mode = Mode.command
         self.__command.set_text(":")
+        self.__command.focus()
         curses.curs_set(2)
 
     def cancel_command(self):
         curses.curs_set(0)
         self.__mode = Mode.control
         self.__command.set_text("")
+        self.__command.unfocus()
 
     def execute_command(self):
         curses.curs_set(0)
         self.__mode = Mode.control
         command = self.__command.get_text()
         self.__command.set_text("")
+        self.__command.unfocus()
         try:
             commands.execute(command, self)
             self.status_clear()
@@ -199,6 +216,15 @@ class App:
             self.set_active_request(new_request)
         return new_request
 
+    def execute_request(self):
+        if self.context.active_collection and self.context.active_request:
+            exec_id = f"{self.context.active_collection.name}/{self.context.active_request.name}"
+            self.__executor.dispatch(self.context.active_request, exec_id)
+
     def quit(self):
         self.__running = False
+
+    @property
+    def stdscr(self) -> curses.window:
+        return self.__stdscr
 

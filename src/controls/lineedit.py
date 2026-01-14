@@ -1,4 +1,7 @@
 import curses
+import typing
+
+import logging
 
 from .control import Control
 
@@ -11,15 +14,28 @@ class LineEdit(Control):
     _text: str
     _cursor: int
     _offset: int
+    _change: typing.Callable[[str], typing.Any] | None
+    _buffer: str
 
     def __init__(self, stdscr: curses.window, location: tuple[int, int], width: int):
-        super().__init__()
+        super().__init__(focus_greedy=True)
         self._create_window(stdscr, (1, width), location)
         self._width = width
         self._location = location
         self._text = ""
+        self._buffer = ""
         self._cursor = 0
         self._offset = 0
+        self._change = None
+
+    def on_focus(self):
+        self._buffer = self._text
+        self._win.move(0, self._cursor - self._offset)
+        self._win.refresh()
+        curses.curs_set(2)
+
+    def on_unfocus(self):
+        curses.curs_set(0)
 
     def set_text(self, text: str):
         self._text = text
@@ -55,6 +71,20 @@ class LineEdit(Control):
             self._cursor = max(0, self._cursor - 1)
         elif ch == curses.KEY_RIGHT:
             self._cursor = min(len(self._text), self._cursor+1)
+        elif ch in [Control.RETURN, Control.ESC]:
+            if ch == Control.ESC:
+                self.set_text(self._buffer)
+            elif self.change:
+                self.change(self._text)
+            self.unfocus()
+        elif ch == Control.CTRL_B:
+            self._cursor = 0
+        elif ch == Control.CTRL_C:
+            self._cursor = len(self._text)
+        elif ch == Control.CTRL_E:
+            self._text = ""
+            self._cursor = 0
+            self._offset = 0
         else:
             redraw = False
 
@@ -69,4 +99,13 @@ class LineEdit(Control):
             self._offset = self._cursor - self._width + 1
         elif self._cursor < self._offset:
             self._offset = self._cursor
+
+    @property
+    def change(self):
+        return self._change
+
+    @change.setter
+    def change(self, value):
+        self._change = value
+
 

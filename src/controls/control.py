@@ -11,6 +11,13 @@ class CannotFocus(NotImplementedError):
 
 
 class Control(metaclass=ABCMeta):
+    CTRL_B: typing.ClassVar[int] = 2
+    CTRL_C: typing.ClassVar[int] = 3
+    CTRL_E: typing.ClassVar[int] = 5
+
+    ESC = 27
+    RETURN = ord('\n')
+
     __focused: bool
     _win: curses.window
 
@@ -20,13 +27,16 @@ class Control(metaclass=ABCMeta):
     __pause_repaint: bool
     __need_repaint: bool
 
-    def __init__(self):
+    focus_greedy: bool  # Refuses attempts to wrest focus.
+
+    def __init__(self, focus_greedy: bool = False):
         self.__focused = False
         self._foreground = Control.g_foreground
         self._background = Control.g_background
 
         self.__pause_repaint = False
         self.__need_repaint = False
+        self.focus_greedy = focus_greedy
 
     def _create_window(self, parent: curses.window, size: tuple[int, int], pos: tuple[int, int]):
         win = parent.derwin(*size, *pos)
@@ -52,12 +62,20 @@ class Control(metaclass=ABCMeta):
             try:
                 self.try_focus()
                 self.__focused = True
+                self.on_focus()
             except CannotFocus:
                 pass
 
     def on_unfocus(self):
         """
         What to do before focus is revoked from
+        this control.
+        """
+        pass
+
+    def on_focus(self):
+        """
+        What to do when focus is granted to
         this control.
         """
         pass
