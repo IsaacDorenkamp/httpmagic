@@ -14,6 +14,7 @@ class RequestThread(threading.Thread):
 
     def __init__(self, request: Request, exec_id: str, target: queue.Queue[tuple[str, httpx.Response | Exception]]):
         self._request = request
+        self._id = exec_id
         self._target = target
 
     def run(self):

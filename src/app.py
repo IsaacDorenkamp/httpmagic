@@ -1,12 +1,13 @@
 import curses
 import enum
+import logging
 
 import colors
 import commands
 import controls
 import executor
 from entities.context import AppContext
-from entities.request import Collection, Request
+from entities.request import Collection, Method, Request
 import util
 
 from views.request_view import RequestView
@@ -76,6 +77,9 @@ class App:
 
         self.create_collection("Unsorted Collection", True)
 
+        # TODO: temporary
+        self.context.active_request = Request(name="", method=Method.GET, url="", headers={})
+
         # renders
         self.__request_pane.repaint()
         self.__response_pane.repaint()
@@ -97,6 +101,10 @@ class App:
                 self.__focus = focus
             except controls.CannotFocus:
                 self.__focus = None
+
+    def update(self):
+        for request_id, result in self.__executor.collect():
+            logging.debug(f"{request_id}: {result}")
 
     def run(self) -> int:
         curses.curs_set(0)

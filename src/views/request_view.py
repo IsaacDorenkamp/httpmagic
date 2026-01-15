@@ -1,6 +1,5 @@
 from __future__ import annotations
 import curses
-import logging
 from urllib.parse import urlparse
 import typing
 
@@ -15,13 +14,16 @@ if typing.TYPE_CHECKING:
 class RequestView(Panel):
     __app: App
 
-    __method: OptionBox    
+    __method: OptionBox
+    __url: LineEdit
+    __send: Button
 
     def __init__(self, parent: App, pos: tuple[int, int], size: tuple[int, int]):
         super().__init__(parent.stdscr, pos, size)
 
         self.__app = parent
         self.__method = OptionBox(self._win, (3, 15), 7)
+        self.__method.change = self.update_method
         self.__url = LineEdit(self._win, (3, 28), size[1] - 35)
         self.__url.background = colors.parse_color(parent.context.settings.colors.contrast)
         self.__url.change = self.update_url
@@ -53,6 +55,12 @@ class RequestView(Panel):
             valid = False
 
         self.__url.background = curses.COLOR_RED if not valid else colors.parse_color(self.__app.context.settings.colors.contrast)
+        if valid and self.__app.context.active_request:
+            self.__app.context.active_request.url = url
+
+    def update_method(self, method: str):
+        if self.__app.context.active_request:
+            self.__app.context.active_request.method = Method(method)
 
     def render(self):
         super().render()

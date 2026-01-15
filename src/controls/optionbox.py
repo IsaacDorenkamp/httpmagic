@@ -1,6 +1,10 @@
 import curses
+import typing
 
 from .control import Control
+
+
+type ChangeHandler = typing.Callable[[str], typing.Any]
 
 
 class OptionBox(Control):
@@ -9,6 +13,7 @@ class OptionBox(Control):
     __selection: tuple[str, int] | None
     __pos: tuple[int, int]
     __width: int
+    __change: ChangeHandler | None
 
     def __init__(self, parent: curses.window, pos: tuple[int, int], width: int):
         super().__init__()
@@ -18,6 +23,7 @@ class OptionBox(Control):
         self.__selection = None
         self.__pos = pos
         self.__width = width
+        self.__change = None
 
     def try_focus(self):
         curses.curs_set(2)
@@ -63,6 +69,8 @@ class OptionBox(Control):
                 # Found a single match!
                 self.__selection = matches[0]
                 self.__candidate = None
+                if self.__change:
+                    self.__change(matches[0][0])
                 self.repaint()
                 self.unfocus()
             else:
@@ -70,4 +78,12 @@ class OptionBox(Control):
                 self.repaint()
         elif ch == 27:
             self.unfocus()
+
+    @property
+    def change(self) -> ChangeHandler | None:
+        return self.__change
+
+    @change.setter
+    def change(self, value: ChangeHandler | None):
+        self.__change = value
 
