@@ -25,7 +25,7 @@ class RequestView(Panel):
         self.__method = OptionBox(self._win, (3, 15), 7)
         self.__method.change = self.update_method
         self.__url = LineEdit(self._win, (3, 28), size[1] - 35)
-        self.__url.background = colors.parse_color(parent.context.settings.colors.contrast)
+        self.__url.background = colors.get_color("contrast")
         self.__url.change = self.update_url
 
         self.__send = Button(self._win, (size[0] - 4, size[1] - 16), 15, "Send")
@@ -54,7 +54,7 @@ class RequestView(Panel):
         except ValueError:
             valid = False
 
-        self.__url.background = curses.COLOR_RED if not valid else colors.parse_color(self.__app.context.settings.colors.contrast)
+        self.__url.background = curses.COLOR_RED if not valid else colors.get_color("contrast")
         if valid and self.__app.context.active_request:
             self.__app.context.active_request.url = url
 

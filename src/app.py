@@ -8,6 +8,7 @@ import controls
 import executor
 from entities.context import AppContext
 from entities.request import Collection, Method, Request
+from entities.response import Response
 import util
 
 from views.request_view import RequestView
@@ -40,18 +41,18 @@ class App:
     # Public
     context: AppContext
 
-    def __init__(self, stdscr: curses.window):
+    def __init__(self, stdscr: curses.window, context: AppContext):
         self.__stdscr = stdscr
         self.__mode = Mode.control
         self.__running = True
-        self.context = AppContext.create()
+        self.context = context
 
         bounds = stdscr.getmaxyx()
 
-        controls.Control.configure(foreground=colors.parse_color(self.context.settings.colors.foreground), background=colors.parse_color(self.context.settings.colors.background))
+        controls.Control.configure(foreground=colors.get_color("foreground"), background=colors.get_color("background"))
         stdscr.bkgd(colors.color_pair(
-            colors.parse_color(self.context.settings.colors.foreground),
-            colors.parse_color(self.context.settings.colors.background)
+            colors.get_color("foreground"),
+            colors.get_color("background"),
         ))
         stdscr.refresh()
 
@@ -68,8 +69,8 @@ class App:
         self.__response_pane = ResponseView(self,(0, 50 + pane_width), (bounds[0] - 2, pane_width))
 
         self.__status  = controls.Label(stdscr, (bounds[0] - 2, 0), (1, bounds[1]))
-        self.__status.background = colors.parse_color(self.context.settings.colors.contrast)
-        self.__status.foreground = colors.parse_color(self.context.settings.colors.foreground)
+        self.__status.background = colors.get_color("contrast")
+        self.__status.foreground = colors.get_color("foreground")
         self.__command = controls.LineEdit(stdscr, (bounds[0] - 1, 0), bounds[1])
 
         self.__focus = None
@@ -103,8 +104,8 @@ class App:
                 self.__focus = None
 
     def update(self):
-        for request_id, result in self.__executor.collect():
-            logging.debug(f"{request_id}: {result}")
+        for request_key, result in self.__executor.collect():
+            self.set_response(request_key, Response(status=result.status_code, headers=dict(result.headers), data=result.content))
 
     def run(self) -> int:
         curses.curs_set(0)
@@ -117,6 +118,7 @@ class App:
                     continue
             elif ch == -1:
                 self.update_focus()
+                self.update()
                 continue
 
             if self.__mode == Mode.control:
@@ -138,6 +140,8 @@ class App:
                     command = self.__command.get_text()
                     if not command.startswith(':'):
                         self.cancel_command()
+
+            self.update()
 
         return 0
 
@@ -174,14 +178,14 @@ class App:
             self.__status.set_text(message)
             self.__status.bold = True
             self.__status.italic = True
-            self.__status.foreground = colors.parse_color(self.context.settings.colors.error)
+            self.__status.foreground = colors.get_color("error")
 
     def status_info(self, message: str):
         with self.__status.no_repaint():
             self.__status.set_text(message)
             self.__status.bold = False
             self.__status.italic = False
-            self.__status.foreground = colors.parse_color(self.context.settings.colors.foreground)
+            self.__status.foreground = colors.get_color("foreground")
 
     def status_clear(self):
         with self.__status.no_repaint():
@@ -191,6 +195,11 @@ class App:
             self.__status.set_text("")
 
     # public API
+    def set_response(self, request_key: str, response: Response):
+        self.context.responses[request_key] = response
+        if request_key == self.active_request_key:
+            self.__response_pane.set_response(response)
+
     def create_collection(self, name: str, activate: bool = False) -> Collection:
         new_collection = Collection(requests=[], name=name)
         self.context.collections.append(new_collection)
@@ -225,14 +234,23 @@ class App:
         return new_request
 
     def execute_request(self):
-        if self.context.active_collection and self.context.active_request:
-            exec_id = f"{self.context.active_collection.name}/{self.context.active_request.name}"
+        exec_id = self.active_request_key
+        if exec_id and self.context.active_request:
+            self.__response_pane.set_loading(True)
             self.__executor.dispatch(self.context.active_request, exec_id)
 
     def quit(self):
         self.__running = False
 
     @property
+    def active_request_key(self) -> str | None:
+        if self.context.active_collection and self.context.active_request:
+            return f"{self.context.active_collection.name}/{self.context.active_request.name}"
+
+        return None
+
+    @property
     def stdscr(self) -> curses.window:
         return self.__stdscr
+
 

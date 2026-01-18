@@ -1,11 +1,12 @@
 import curses
+import logging
 import typing
 
-
+_limited = False
+_cur_color = 9
+_cur_pair = 1
 _color_pairs = {}
-_colors = {}
-_cur_color = 11
-_color_words = {
+_colors = {
     "black": curses.COLOR_BLACK,
     "blue": curses.COLOR_BLUE,
     "cyan": curses.COLOR_CYAN,
@@ -16,8 +17,7 @@ _color_words = {
     "yellow": curses.COLOR_YELLOW,
 }
 
-
-COLOR_ORANGE = 8
+global COLOR_ORANGE
 
 
 def parse_hex(hexstr: str) -> tuple[int, int, int]:
@@ -28,39 +28,65 @@ def parse_hex(hexstr: str) -> tuple[int, int, int]:
     return typing.cast(tuple[int, int, int], tuple(round((float(x) / 256) * 1000) for x in raw_rgb))
 
 
-def parse_color(color: str):
-    if color in _color_words:
-        return _color_words[color]
-    elif color.startswith('#') and len(color) == 7:
-        rgb = parse_hex(color)
-        if rgb not in _colors:
-            global _cur_color
-            curses.init_color(_cur_color, *rgb)
-            _colors[rgb] = _cur_color
-            _cur_color += 1
-        return _colors[rgb]
+def create_color(name: str, colorstr: str):
+    # if color change is not supported, we will simply map to existing colors
+    if _limited:
+        if colorstr in _colors:
+            _colors[name] = _colors[colorstr]
+            return _colors[name]
+        else:
+            raise ValueError("bad color: %s" % colorstr)
+
+    if colorstr in _colors:
+        r, g, b = curses.color_content(_colors[colorstr])
+    elif colorstr.startswith("#"):
+        r, g, b = parse_hex(colorstr)
     else:
-        raise ValueError("invalid color: %s" % color)
+        raise ValueError("bad color: %s" % colorstr)
+
+    if name in _colors:
+        color_id = _colors[name]
+    else:
+        global _cur_color
+        color_id = _cur_color
+        _colors[name] = color_id
+        _cur_color += 1
+
+    curses.init_color(color_id, r, g, b)
+    return color_id
 
 
-def initialize():
+def get_color(name: str):
+    logging.debug(f"colors: {str(_colors)}")
+    return _colors[name]
+
+
+def initialize(force: bool = False) -> bool:
     curses.start_color()
 
+    global COLOR_ORANGE
+    if not curses.can_change_color() and not force:
+        global _limited
+        _limited = True
+        COLOR_ORANGE = curses.COLOR_YELLOW or -1
+        return False
+
     # add a couple extra simple colors
-    curses.init_color(COLOR_ORANGE, *parse_hex("#FF5F1F"))
+    COLOR_ORANGE = create_color("orange", "#FF5F1F")
+    return True
 
 
 def color_pair(fg: int, bg: int):
-    key = fg, bg
+    key = f"{fg}-{bg}"
     if key in _color_pairs:
-        return curses.color_pair(_color_pairs[key])
+        pair_num = _color_pairs[key]
     else:
-        if not _color_pairs:
-            pair_num = 1
-            _color_pairs[key] = pair_num
-        else:
-            pair_num = max(_color_pairs.values()) + 1
-            _color_pairs[key] = pair_num
+        global _cur_pair
+        pair_num = _cur_pair
+        _cur_pair += 1
+        _color_pairs[key] = pair_num
         curses.init_pair(pair_num, fg, bg)
-        return curses.color_pair(pair_num)
+
+    result = curses.color_pair(pair_num)
+    return result
 

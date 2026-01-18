@@ -1,5 +1,6 @@
 from .entity import Entity
 from .request import *
+from .response import *
 from .settings import Settings
 
 
@@ -13,9 +14,9 @@ class AppContext(Entity):
     # app state
     active_collection: Collection | None
     active_request: Request | None
-
+    responses: dict[str, Response]
 
     @staticmethod
     def create():
-        return AppContext(settings=Settings(), collections=[], active_collection=None, active_request=None)
+        return AppContext(settings=Settings(), collections=[], active_collection=None, active_request=None, responses={})
 
