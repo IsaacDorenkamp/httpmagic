@@ -9,6 +9,9 @@ class Panel(Control):
     _location: tuple[int, int]
     _size: tuple[int, int]
 
+    __children: list[Control]
+    __content_visible: bool
+
     def __init__(self, parent: curses.window, location: tuple[int, int], size: tuple[int, int]):
         super().__init__()
         self._win = parent.derwin(*size, *location)
@@ -16,9 +19,30 @@ class Panel(Control):
         self._win.refresh()
         self._location = location
         self._size = size
+        self.__children = []
+        self.__content_visible = True
 
     def render(self):
         self._win.border()
+        if self.__content_visible:
+            for child in self.__children:
+                child.paint()
+
+    def set_content_visible(self, visible: bool):
+        self.__content_visible = visible
+        self.repaint()
+
+    def add_child(self, child: Control):
+        self.__children.append(child)
+        self.repaint()
+
+    def remove_child(self, child: Control):
+        self.__children.remove(child)
+        self.repaint()
+
+    @property
+    def content_visible(self) -> bool:
+        return self.__content_visible
 
     @property
     def pane_location(self) -> tuple[int, int]:

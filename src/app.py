@@ -1,6 +1,5 @@
 import curses
 import enum
-import logging
 
 import colors
 import commands
@@ -66,6 +65,7 @@ class App:
 
         pane_width = (bounds[1] - 50) // 2
         self.__request_pane = RequestView(self, (0, 50), (bounds[0] - 2, pane_width))
+        self.__request_pane.set_content_visible(False)
         self.__response_pane = ResponseView(self,(0, 50 + pane_width), (bounds[0] - 2, pane_width))
 
         self.__status  = controls.Label(stdscr, (bounds[0] - 2, 0), (1, bounds[1]))
@@ -77,9 +77,6 @@ class App:
         self.__executor = executor.RequestExecutor()
 
         self.create_collection("Unsorted Collection", True)
-
-        # TODO: temporary
-        self.context.active_request = Request(name="", method=Method.GET, url="", headers={})
 
         # renders
         self.__request_pane.repaint()

@@ -48,7 +48,6 @@ class LineEdit(Control):
 
     def render(self):
         portion = self._text[self._offset:self._offset+self._width]
-        self._win.clear()
         try:
             with self.usecolor(self._win):
                 self._win.addstr(0, 0, portion)

@@ -27,6 +27,8 @@ class Control(metaclass=ABCMeta):
     __pause_repaint: bool
     __need_repaint: bool
 
+    __visible: bool
+
     focus_greedy: bool  # Refuses attempts to wrest focus.
 
     def __init__(self, focus_greedy: bool = False):
@@ -36,6 +38,7 @@ class Control(metaclass=ABCMeta):
 
         self.__pause_repaint = False
         self.__need_repaint = False
+        self.__visible = True
         self.focus_greedy = focus_greedy
 
     def _create_window(self, parent: curses.window, size: tuple[int, int], pos: tuple[int, int]):
@@ -102,14 +105,22 @@ class Control(metaclass=ABCMeta):
         """
         raise NotImplementedError()
 
+    def paint(self) -> bool:
+        if self.__visible:
+            self.render()
+            self._win.refresh()
+            return True
+
+        return False
+
     def repaint(self):
         if self.__pause_repaint:
             self.__need_repaint = True
             return
 
         self._win.erase()
-        self.render()
-        self._win.refresh()
+        if not self.paint():
+            self._win.refresh()
 
     @property
     def focused(self) -> bool:
@@ -174,4 +185,12 @@ class Control(metaclass=ABCMeta):
         self._background = temp
         self._win.bkgd(colors.color_pair(self.foreground, self.background))
         self.repaint()
+
+    def set_visible(self, visible: bool):
+        self.__visible = visible
+        self.repaint()
+
+    @property
+    def visible(self) -> bool:
+        return self.__visible
 

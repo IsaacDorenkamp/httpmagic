@@ -37,13 +37,19 @@ class RequestView(Panel):
 
         self.__method.set_option("GET")
 
+        with self.no_repaint():
+            self.add_child(self.__url)
+            self.add_child(self.__send)
+            self.add_child(self.__method)
+
     def handle_input(self, ch: int):
-        if ch == ord('m'):
-            self.__app.set_focus(self.__method)
-        elif ch == ord('u'):
-            self.__app.set_focus(self.__url)
-        elif ch == ord('S'):
-            self.__app.set_focus(self.__send)
+        if self.visible:
+            if ch == ord('m'):
+                self.__app.set_focus(self.__method)
+            elif ch == ord('u'):
+                self.__app.set_focus(self.__url)
+            elif ch == ord('S'):
+                self.__app.set_focus(self.__send)
 
     def update_url(self, url):
         valid = True
@@ -65,22 +71,29 @@ class RequestView(Panel):
     def render(self):
         super().render()
 
-        # label
-        self._win.move(3, 7)
-        self._win.attron(curses.A_UNDERLINE)
-        self._win.addch("M")
-        self._win.attroff(curses.A_UNDERLINE)
-        self._win.addstr("ethod:")
-        self.__method.render()
+        if self.content_visible:
+            # render labels for controls
+            self._win.move(3, 7)
+            self._win.attron(curses.A_UNDERLINE)
+            self._win.addch("M")
+            self._win.attroff(curses.A_UNDERLINE)
+            self._win.addstr("ethod:")
 
-        self._win.move(3, 23)
-        self._win.attron(curses.A_UNDERLINE)
-        self._win.addch("U")
-        self._win.attroff(curses.A_UNDERLINE)
-        self._win.addstr("RL:")
-        self.__url.render()
+            self._win.move(3, 23)
+            self._win.attron(curses.A_UNDERLINE)
+            self._win.addch("U")
+            self._win.attroff(curses.A_UNDERLINE)
+            self._win.addstr("RL:")
+        else:
+            # render an alternative placeholder
+            text = "No request selected."
+            pos = (self._size[0] // 2, self._size[1] // 2 - len(text) // 2)
+            self._win.move(*pos)
+            self._win.addstr(text, curses.A_ITALIC)
 
-        self.__send.render()
-
-        self._win.refresh()
+    def set_visible(self, visible: bool):
+        super().set_visible(visible)
+        self.__method.set_visible(visible)
+        self.__url.set_visible(visible)
+        self.__send.set_visible(visible)
 
