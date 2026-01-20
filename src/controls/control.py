@@ -14,6 +14,7 @@ class Control(metaclass=ABCMeta):
     CTRL_B: typing.ClassVar[int] = 2
     CTRL_C: typing.ClassVar[int] = 3
     CTRL_E: typing.ClassVar[int] = 5
+    CTRL_S: typing.ClassVar[int] = 19
 
     ESC = 27
     RETURN = ord('\n')

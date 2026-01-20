@@ -57,7 +57,6 @@ def create_color(name: str, colorstr: str):
 
 
 def get_color(name: str):
-    logging.debug(f"colors: {str(_colors)}")
     return _colors[name]
 
 

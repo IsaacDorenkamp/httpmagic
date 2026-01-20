@@ -4,8 +4,6 @@ import io
 import itertools
 import typing
 
-import logging
-
 
 class CommandError(Exception):
     pass
@@ -122,12 +120,41 @@ def execute(raw_command: str, host: App):
 @register("nr", ["name"])
 def command_new_request(args: dict[str, str], app: App):
     name = args["name"]
-    app.create_request(name, True)
+    try:
+        app.create_request(name, True)
+    except ValueError as err:
+        raise CommandError(str(err))
 
 @register("nc", ["name"])
 def command_new_collection(args: dict[str, str], app: App):
     name = args["name"]
     app.create_collection(name, True)
+
+
+@register("rr", ["name"])
+def command_rename_request(args: dict[str, str], app: App):
+    name = args["name"]
+    try:
+        app.rename_active_request(name)
+    except ValueError as err:
+        raise CommandError(str(err))
+
+
+@register("rc", ["name"])
+def command_rename_collection(args: dict[str, str], app: App):
+    name = args["name"]
+    try:
+        app.rename_active_collection(name)
+    except ValueError as err:
+        raise CommandError(str(err))
+
+
+@register("sr", [])
+def command_save_request(_: dict[str, str], app: App):
+    if app.context.active_request and app.context.active_collection:
+        app.store.save_request(app.store.get_collection_root(app.context.active_collection), app.context.active_request)
+    else:
+        raise CommandError("No active collection or request.")
 
 
 @register("q", [])

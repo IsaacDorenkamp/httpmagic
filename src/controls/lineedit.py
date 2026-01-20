@@ -1,8 +1,6 @@
 import curses
 import typing
 
-import logging
-
 from .control import Control
 
 
@@ -47,10 +45,10 @@ class LineEdit(Control):
         return self._text
 
     def render(self):
-        portion = self._text[self._offset:self._offset+self._width]
+        portion = self._text[self._offset:self._offset+self._width].ljust(self._width, " ")
         try:
             with self.usecolor(self._win):
-                self._win.addstr(0, 0, portion)
+                self._win.addnstr(0, 0, portion, self._width)
         except curses.error:
             pass
 

@@ -3,9 +3,11 @@ import collections.abc
 import copy
 import enum
 import json
+import uuid
 import types
 import typing
 
+import logging
 
 T = typing.TypeVar("T")
 
@@ -69,6 +71,8 @@ class FieldInfo:
                 return self.validate_mapping(single_type, value)
             else:
                 raise TypeError("A Mapping type requires a Mapping value!")
+        elif origin_type == uuid.UUID:
+            return uuid.UUID(value)
         else:
             if isinstance(value, origin_type):
                 return value
@@ -163,12 +167,30 @@ class Entity(metaclass=EntityMeta):
 
 
 class EntityEncoder(json.JSONEncoder):
+    __exclude: set[str]
+
+    def __init__(self, *args, exclude: set[str] | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        logging.debug("EXCLUDE: %s" % str(exclude))
+        self.__exclude = exclude or set()
+
+    def encode(self, o):
+        if isinstance(o, Entity):
+            o = {
+                field.name: getattr(o, key)
+                for key, field in o.__fields__.items() if field.name not in self.__exclude
+            }
+
+        return super().encode(o)
+
     def default(self, o):
         if isinstance(o, Entity):
             return {
                 field.name: getattr(o, key)
                 for key, field in o.__fields__.items()
             }
+        elif isinstance(o, uuid.UUID):
+            return str(o)
 
         return super().default(o)
 

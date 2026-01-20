@@ -1,15 +1,19 @@
 import curses
 import enum
+import uuid
+
+import httpx
 
 import colors
 import commands
 import controls
 import executor
 from entities.context import AppContext
-from entities.request import Collection, Method, Request
+from entities.request import Collection, Request
 from entities.response import Response
 import util
 
+from persist import PersistStore
 from views.request_view import RequestView
 from views.response_view import ResponseView
 
@@ -22,6 +26,8 @@ class Mode(enum.Enum):
 class App:
     __stdscr: curses.window
 
+    __store: PersistStore
+
     __mode: Mode
     __running: bool
 
@@ -30,7 +36,8 @@ class App:
     __collection: controls.ListBox
     __command: controls.LineEdit
 
-    __request_pane: controls.Panel
+    __request_pane: RequestView
+    __response_pane: ResponseView
 
     __focus: controls.Control | None
 
@@ -40,8 +47,9 @@ class App:
     # Public
     context: AppContext
 
-    def __init__(self, stdscr: curses.window, context: AppContext):
+    def __init__(self, stdscr: curses.window, context: AppContext, store: PersistStore):
         self.__stdscr = stdscr
+        self.__store = store
         self.__mode = Mode.control
         self.__running = True
         self.context = context
@@ -62,6 +70,7 @@ class App:
         self.__collection_name.italic = True
         self.__collection_name.underline = True
         self.__collection = controls.ListBox(self.__collection_pane.window, (2, 1), (pane_size[0] - 1, pane_size[1]))
+        self.__collection.change = self._request_changed
 
         pane_width = (bounds[1] - 50) // 2
         self.__request_pane = RequestView(self, (0, 50), (bounds[0] - 2, pane_width))
@@ -76,7 +85,11 @@ class App:
         self.__focus = None
         self.__executor = executor.RequestExecutor()
 
-        self.create_collection("Unsorted Collection", True)
+        if self.context.collections:
+            collection = self.context.collections[0]
+            self.set_active_collection(collection)
+            if collection.requests:
+                self.set_active_request(collection.requests[0])
 
         # renders
         self.__request_pane.repaint()
@@ -102,7 +115,8 @@ class App:
 
     def update(self):
         for request_key, result in self.__executor.collect():
-            self.set_response(request_key, Response(status=result.status_code, headers=dict(result.headers), data=result.content))
+            if isinstance(result, httpx.Response):
+                self.set_response(request_key, Response(status=result.status_code, headers=dict(result.headers), data=result.content))
 
     def run(self) -> int:
         curses.curs_set(0)
@@ -124,6 +138,8 @@ class App:
                     self.begin_command()
                 elif self.__focus is not None:
                     self.__focus.handle_input(ch)
+                elif ch == controls.Control.CTRL_S:
+                    self.set_focus(self.__collection)
                 else:
                     self.__request_pane.handle_input(ch)
             else:
@@ -198,7 +214,10 @@ class App:
             self.__response_pane.set_response(response)
 
     def create_collection(self, name: str, activate: bool = False) -> Collection:
-        new_collection = Collection(requests=[], name=name)
+        new_collection_id = uuid.uuid4()
+        # TODO: validate uniqueness of id
+        new_collection = Collection(id=new_collection_id, requests=[], name=name)
+        self.store.save_collection(new_collection)
         self.context.collections.append(new_collection)
         if activate:
             self.set_active_collection(new_collection)
@@ -214,21 +233,58 @@ class App:
             self.__collection.add_item(request.name)
 
     def set_active_request(self, request: Request):
-        pass
+        self.context.active_request = request
+        self.__request_pane.set_method(request.method)
+        self.__request_pane.set_url(request.url)
+        self.__request_pane.set_content_visible(True)
 
     def create_request(self, name: str, activate: bool = False) -> Request:
         if self.context.active_collection is None:
             raise ValueError("No active collection.")
 
         if name in [request.name for request in self.context.active_collection.requests]:
-            raise commands.CommandError("Request '%s' already exists in this collection." % name)
+            raise ValueError("Request '%s' already exists in this collection." % name)
 
-        new_request = Request(name=name, method="POST", url="http://httpbin.org/get", headers={})
+        new_request = Request(name=name, method="GET", url="http://httpbin.org/get", headers={})
+        self.store.save_request(self.store.get_collection_root(self.context.active_collection), new_request)
         self.context.active_collection.requests.append(new_request)
-        self.__collection.insort_item(name, key=str.lower)
+        self.__collection.insort_item(name, key=str.lower, select=True)
         if activate:
             self.set_active_request(new_request)
         return new_request
+
+    def rename_active_request(self, name: str):
+        if self.context.active_request is None or self.context.active_collection is None:
+            raise ValueError("Not active request.")
+        elif self.context.active_request.name == name:
+            raise ValueError("Name was not changed!")
+
+        existing = next((request for request in self.context.active_collection.requests if request.name == name), None)
+        if existing is not None:
+            raise ValueError("A request named '%s' already exists in this collection." % name)
+
+        index = self.__collection.find(self.context.active_request.name)
+        if index >= 0:
+            self.__collection.set_item(index, name, resort=str.lower)
+            new_index = self.__collection.find(name)
+            self.context.active_request.name = name
+            self.__collection.set_selection(new_index)
+        else:
+            raise ValueError("Request '%s' does not exist in the current collection." % self.context.active_request.name)
+
+    def rename_active_collection(self, name: str):
+        if self.context.active_collection is None:
+            raise ValueError("No collection is active.")
+        elif name == self.context.active_collection.name:
+            raise ValueError("Name was not changed!")
+
+        existing = next((collection for collection in self.context.collections if collection.name == name), None)
+        if existing is not None:
+            raise ValueError("A collection named '%s' already exists." % name)
+
+        self.context.active_collection.name = name
+        self.__collection_name.set_text(name.ljust(self.__collection_pane.pane_size[1], " "))
+
 
     def execute_request(self):
         exec_id = self.active_request_key
@@ -239,6 +295,19 @@ class App:
     def quit(self):
         self.__running = False
 
+    # change listeners
+    def _request_changed(self, request_name: str | None):
+        if self.context.active_collection is None:
+            return
+
+        if request_name is None:
+            self.__request_pane.set_content_visible(False)
+        else:
+            request = next((request for request in self.context.active_collection.requests if request.name == request_name), None)
+            if request is not None:
+                self.set_active_request(request)
+
+    # properties
     @property
     def active_request_key(self) -> str | None:
         if self.context.active_collection and self.context.active_request:
@@ -250,4 +319,7 @@ class App:
     def stdscr(self) -> curses.window:
         return self.__stdscr
 
+    @property
+    def store(self) -> PersistStore:
+        return self.__store
 

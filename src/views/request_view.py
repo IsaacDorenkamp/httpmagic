@@ -42,6 +42,13 @@ class RequestView(Panel):
             self.add_child(self.__send)
             self.add_child(self.__method)
 
+    def set_method(self, method: Method):
+        self.__method.set_option(method)
+
+    def set_url(self, url: str):
+        self.__url.set_text(url)
+        self.update_url(url, propagate=False)
+
     def handle_input(self, ch: int):
         if self.visible:
             if ch == ord('m'):
@@ -51,7 +58,7 @@ class RequestView(Panel):
             elif ch == ord('S'):
                 self.__app.set_focus(self.__send)
 
-    def update_url(self, url):
+    def update_url(self, url, propagate: bool = True):
         valid = True
         try:
             data = urlparse(url)
@@ -61,7 +68,7 @@ class RequestView(Panel):
             valid = False
 
         self.__url.background = curses.COLOR_RED if not valid else colors.get_color("contrast")
-        if valid and self.__app.context.active_request:
+        if valid and self.__app.context.active_request and propagate:
             self.__app.context.active_request.url = url
 
     def update_method(self, method: str):

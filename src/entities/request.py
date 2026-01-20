@@ -1,5 +1,6 @@
 import curses
 import enum
+import uuid
 
 import colors
 from .entity import Entity
@@ -35,6 +36,7 @@ class Method(enum.StrEnum):
 
 class Request(Entity):
     name: str
+    id: uuid.UUID
 
     method: Method
     url: str
@@ -43,5 +45,6 @@ class Request(Entity):
 
 class Collection(Entity):
     name: str
+    id: uuid.UUID
     requests: list[Request]
 

@@ -1,17 +1,22 @@
 import argparse
 import curses
 import logging
+import os
+import pathlib
 import signal
+import traceback
 
 import app
 import colors
-from entities.context import AppContext
 from entities.settings import TerminalColors
+import persist
+import util
 
 
 def load_options():
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", "-d", action="store_true")
+    parser.add_argument("--root", type=pathlib.Path, default=pathlib.Path(os.getenv("HOME") or ".", ".local", "share", "httpmagic"))
     return parser.parse_args()
 
 
@@ -38,7 +43,11 @@ def main(stdscr: curses.window) -> int:
 
     disable_ctrl_c()
 
-    context = AppContext.create()
+    store = persist.PersistStore(options.root)
+    store.ensure()
+    context, exc_group = store.load()
+    if exc_group is not None:
+        util.report_exception(exc_group)
     if colors.initialize():
         configure_colors(context.settings.colors)
     else:
@@ -48,10 +57,9 @@ def main(stdscr: curses.window) -> int:
         colors.create_color("error", "red")
 
     curses.raw()
-
     curses.set_escdelay(25)
 
-    instance = app.App(stdscr, context)
+    instance = app.App(stdscr, context, store)
     return instance.run()
 
 
