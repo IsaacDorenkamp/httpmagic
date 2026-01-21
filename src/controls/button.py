@@ -7,7 +7,6 @@ from .control import Control
 
 class Button(Control):
     _text: str
-    _width: int
     _shortcut: str | None
     _focus_color: int
     _click: typing.Callable[[], typing.Any] | None
@@ -16,7 +15,6 @@ class Button(Control):
         super().__init__()
         self._create_window(parent, (3, width), pos)
         self._text = text
-        self._width = width
         self._shortcut = None
         self._focus_color = curses.COLOR_GREEN
         self._click = handler
@@ -64,4 +62,8 @@ class Button(Control):
     @click.setter
     def click(self, value):
         self._click = value
+
+    @property
+    def _width(self) -> int:
+        return self._size[1]
 

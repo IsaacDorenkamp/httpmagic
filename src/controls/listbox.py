@@ -12,8 +12,6 @@ class ListBox(Control):
     _win: curses.window
 
     _items: list[str]
-    _location: tuple[int, int]
-    _size: tuple[int, int]
     _scroll: int
     _selection: int
     _prev_selection: int
@@ -23,8 +21,6 @@ class ListBox(Control):
         super().__init__()
         self._create_window(parent, size, location)
         self._items = []
-        self._location = location
-        self._size = size
         self._selection = -1
         self._prev_selection = -1
         self._scroll = 0

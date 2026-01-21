@@ -27,10 +27,13 @@ class Control(metaclass=ABCMeta):
 
     __pause_repaint: bool
     __need_repaint: bool
+    __rearranging: bool
 
     __visible: bool
 
     focus_greedy: bool  # Refuses attempts to wrest focus.
+
+    max_size: tuple[int | None, int | None]
 
     def __init__(self, focus_greedy: bool = False):
         self.__focused = False
@@ -39,13 +42,17 @@ class Control(metaclass=ABCMeta):
 
         self.__pause_repaint = False
         self.__need_repaint = False
+        self.__rearranging = False
         self.__visible = True
         self.focus_greedy = focus_greedy
+        self.max_size = None, None
 
     def _create_window(self, parent: curses.window, size: tuple[int, int], pos: tuple[int, int]):
         win = parent.derwin(*size, *pos)
         win.bkgd(colors.color_pair(self.foreground, self.background))
         win.refresh()
+        self._size = size
+        self._pos = pos
         self._win = win
 
     def try_focus(self):
@@ -123,6 +130,19 @@ class Control(metaclass=ABCMeta):
         if not self.paint():
             self._win.refresh()
 
+    def set_size(self, size: tuple[int, int]) -> bool:
+        self._size = (
+            size[0] if self.max_size[0] is None else min(self.max_size[0], size[0]),
+            size[1] if self.max_size[1] is None else min(self.max_size[1], size[1]),
+        )
+        if not self.__rearranging:
+            self._win.resize(*size)
+        return self._size == size
+
+    def set_pos(self, pos: tuple[int, int]):
+        self._pos = pos
+        self._win.mvderwin(*pos)
+
     @property
     def focused(self) -> bool:
         return self.__focused
@@ -179,6 +199,19 @@ class Control(metaclass=ABCMeta):
             if self.__need_repaint:
                 self.__need_repaint = False
                 self.repaint()
+
+    @contextlib.contextmanager
+    def rearrange(self):
+        self.__rearranging = True
+        self._win.resize(1, 1)
+        try:
+            yield
+        finally:
+            import logging
+            logging.debug("done rearranging")
+            self.__rearranging = False
+            self._win.resize(*self._size)
+            self._win.refresh()
 
     def invert_colors(self):
         temp = self._foreground

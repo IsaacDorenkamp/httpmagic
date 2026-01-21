@@ -6,8 +6,6 @@ from .control import Control
 
 class Label(Control):
     _text: str
-    _pos: tuple[int, int]
-    _size: tuple[int, int]
     _lines: list[str]
 
     _bold: int
@@ -18,8 +16,6 @@ class Label(Control):
         super().__init__()
         self._create_window(parent, size, pos)
         self._text = text
-        self._pos = pos
-        self._size = size
 
         self._bold = False
         self._italic = False

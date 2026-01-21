@@ -2,6 +2,8 @@ import curses
 import enum
 import uuid
 
+import logging
+
 import httpx
 
 import colors
@@ -91,9 +93,43 @@ class App:
             if collection.requests:
                 self.set_active_request(collection.requests[0])
 
-        # renders
+        self.repaint()
+
+    def relayout(self):
+        bounds = self.__stdscr.getmaxyx()
+        if bounds[1] <= 150:
+            collection_width = 25
+        else:
+            collection_width = 50
+
+        self.__collection_pane.set_size((bounds[0] - 2, collection_width))
+        self.__collection.set_size((bounds[0] - 4, self.__collection_pane.pane_size[1]))
+        self.__collection_name.set_size((1, self.__collection_pane.pane_size[1]))
+
+        pane_width = (bounds[1] - collection_width) // 2
+        with self.__request_pane.rearrange():
+            self.__request_pane.set_pos((0, collection_width))
+            self.__request_pane.set_size((bounds[0] - 2, pane_width))
+
+        with self.__response_pane.rearrange():
+            self.__response_pane.set_pos((0, collection_width + pane_width))
+            self.__response_pane.set_size((bounds[0] - 2, pane_width))
+
+        with self.__command.rearrange():
+            self.__command.set_size((1, bounds[1] - 1))
+            self.__command.set_pos((bounds[0] - 1, 0))
+
+        with self.__status.rearrange():
+            self.__status.set_size((1, bounds[1] - 1))
+            self.__status.set_pos((bounds[0] - 2, 0))
+
+        self.repaint()
+
+    def repaint(self):
+        self.__stdscr.clear()
         self.__request_pane.repaint()
         self.__response_pane.repaint()
+        self.__collection_pane.repaint()
         self.__collection_name.repaint()
         self.__collection.repaint()
         self.__status.repaint()
@@ -130,6 +166,9 @@ class App:
             elif ch == -1:
                 self.update_focus()
                 self.update()
+                continue
+            elif ch == curses.KEY_RESIZE:
+                self.relayout()
                 continue
 
             if self.__mode == Mode.control:
@@ -237,6 +276,7 @@ class App:
         self.__request_pane.set_method(request.method)
         self.__request_pane.set_url(request.url)
         self.__request_pane.set_content_visible(True)
+        self.__collection.set_selection(self.__collection.find(request.name))
 
     def create_request(self, name: str, activate: bool = False) -> Request:
         if self.context.active_collection is None:

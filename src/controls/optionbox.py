@@ -11,8 +11,6 @@ class OptionBox(Control):
     __options: list[tuple[str, int]]
     __candidate: str | None
     __selection: tuple[str, int] | None
-    __pos: tuple[int, int]
-    __width: int
     __change: ChangeHandler | None
 
     def __init__(self, parent: curses.window, pos: tuple[int, int], width: int):
@@ -21,9 +19,8 @@ class OptionBox(Control):
         self.__options = []
         self.__candidate = None
         self.__selection = None
-        self.__pos = pos
-        self.__width = width
         self.__change = None
+        self.max_size = 1, None
 
     def try_focus(self):
         curses.curs_set(2)
@@ -38,9 +35,9 @@ class OptionBox(Control):
         self._win.move(0, 0)
         try:
             if self.__selection is not None:
-                self._win.addnstr(self.__selection[0], self.__width, self.__selection[1])
+                self._win.addnstr(self.__selection[0], self._width, self.__selection[1])
             elif self.__candidate is not None:
-                self._win.addnstr(self.__candidate, self.__width)
+                self._win.addnstr(self.__candidate, self._width)
         except curses.error:
             pass
 
@@ -86,4 +83,8 @@ class OptionBox(Control):
     @change.setter
     def change(self, value: ChangeHandler | None):
         self.__change = value
+
+    @property
+    def _width(self) -> int:
+        return self._size[1]
 

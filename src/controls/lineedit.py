@@ -7,8 +7,6 @@ from .control import Control
 class LineEdit(Control):
     _win: curses.window
 
-    _width: int
-    _location: tuple[int, int]
     _text: str
     _cursor: int
     _offset: int
@@ -18,13 +16,12 @@ class LineEdit(Control):
     def __init__(self, stdscr: curses.window, location: tuple[int, int], width: int):
         super().__init__(focus_greedy=True)
         self._create_window(stdscr, (1, width), location)
-        self._width = width
-        self._location = location
         self._text = ""
         self._buffer = ""
         self._cursor = 0
         self._offset = 0
         self._change = None
+        self.max_size = 1, None
 
     def on_focus(self):
         self._buffer = self._text
@@ -104,5 +101,9 @@ class LineEdit(Control):
     @change.setter
     def change(self, value):
         self._change = value
+
+    @property
+    def _width(self) -> int:
+        return self._size[1]
 
 
