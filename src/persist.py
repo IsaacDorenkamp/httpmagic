@@ -24,7 +24,7 @@ class PersistStore:
 
     def save_collection(self, collection: Collection, save_requests: bool = False):
         with open(self.__collections.joinpath(f"{collection.id}.json"), "w") as fp:
-            json.dump(collection, fp, cls=EntityEncoder, exclude={"requests", "id"})
+            json.dump(collection, fp, cls=EntityEncoder, exclude={"Collection.requests", "Collection.id"})
         
         if save_requests:
             collection_root = self.get_collection_root(collection)

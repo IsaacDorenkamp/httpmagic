@@ -167,27 +167,24 @@ class Entity(metaclass=EntityMeta):
 
 
 class EntityEncoder(json.JSONEncoder):
-    __exclude: set[str]
+    __exclude: set[tuple[str, str]]
 
     def __init__(self, *args, exclude: set[str] | None = None, **kwargs):
         super().__init__(*args, **kwargs)
-        logging.debug("EXCLUDE: %s" % str(exclude))
-        self.__exclude = exclude or set()
+        self.__exclude = set()
+        for exclude_item in (exclude or set()):
+            parts = exclude_item.split(".", maxsplit=2)
+            if len(parts) != 2:
+                raise ValueError("exclude keys should have format EntityType.FieldName")
 
-    def encode(self, o):
-        if isinstance(o, Entity):
-            o = {
-                field.name: getattr(o, key)
-                for key, field in o.__fields__.items() if field.name not in self.__exclude
-            }
-
-        return super().encode(o)
+            self.__exclude.add((parts[0], parts[1]))
 
     def default(self, o):
         if isinstance(o, Entity):
+            to_exclude = {exclude[1] for exclude in self.__exclude if exclude[0] == o.__class__.__name__}
             return {
                 field.name: getattr(o, key)
-                for key, field in o.__fields__.items()
+                for key, field in o.__fields__.items() if field.name not in to_exclude
             }
         elif isinstance(o, uuid.UUID):
             return str(o)
