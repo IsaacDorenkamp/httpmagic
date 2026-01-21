@@ -245,7 +245,10 @@ class App:
         if name in [request.name for request in self.context.active_collection.requests]:
             raise ValueError("Request '%s' already exists in this collection." % name)
 
-        new_request = Request(name=name, method="GET", url="http://httpbin.org/get", headers={})
+        new_id = uuid.uuid4()
+        while new_id in {request.id for request in self.context.active_collection.requests}:
+            new_id = uuid.uuid4()
+        new_request = Request(id=new_id, name=name, method="GET", url="http://httpbin.org/get", headers={})
         self.store.save_request(self.store.get_collection_root(self.context.active_collection), new_request)
         self.context.active_collection.requests.append(new_request)
         self.__collection.insort_item(name, key=str.lower, select=True)

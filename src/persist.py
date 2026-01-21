@@ -36,8 +36,11 @@ class PersistStore:
                 self.save_request(collection_root, request)
 
     def save_request(self, collection_root: Path, request: Request):
-        with open(collection_root.joinpath(f"{request.id}.json")) as fp:
-            json.dump(request, fp, cls=EntityEncoder)
+        if not collection_root.is_dir():
+            collection_root.mkdir(parents=True)
+
+        with open(collection_root.joinpath(f"{request.id}.json"), "w") as fp:
+            json.dump(request, fp, cls=EntityEncoder, exclude={"Request.id"})
 
     def load(self) -> tuple[AppContext, ExceptionGroup | None]:
         if not self.__collections.is_dir():
