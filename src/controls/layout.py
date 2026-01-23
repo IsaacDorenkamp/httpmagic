@@ -1,9 +1,7 @@
+from __future__ import annotations
 from abc import ABCMeta, abstractmethod
-import curses
 import logging
 import typing
-
-from .control import Control
 
 
 T = typing.TypeVar("T")
@@ -19,7 +17,7 @@ class Layout(typing.Generic[T], metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def arrange(self, window: curses.window):
+    def arrange(self, abs_region: ScreenRegion):
         raise NotImplementedError()
 
 
@@ -52,7 +50,7 @@ class GridLayout(Layout[GridData]):
     def remove_child(self, child: Control):
         del self._items[child]
 
-    def arrange(self, window: curses.window) -> bool:
+    def arrange(self, abs_region: ScreenRegion) -> bool:
         """
         Arrange the controls managed by this layout in the specified curses window. If anything goes wrong,
         such as if the calculated cell size has either a height or width of 0, then this will return False.
@@ -62,10 +60,9 @@ class GridLayout(Layout[GridData]):
         if not self._items:
             return True
 
-        size = window.getmaxyx()
+        size = abs_region.bottom - abs_region.top + 1, abs_region.right - abs_region.left + 1
         num_rows = max(((grid_data.row + grid_data.row_span - 1) for grid_data in self._items.values())) + 1
         num_cols = max(((grid_data.col + grid_data.col_span - 1) for grid_data in self._items.values())) + 1
-        logging.debug(f"Num cols: {num_cols}")
 
         # TODO: determine cell size. by default, try to expand component to cell,
         # but if not possible, attempt refer to GridData (will need to add new fields)
@@ -81,7 +78,12 @@ class GridLayout(Layout[GridData]):
             with control.rearrange():
                 expanded = control.set_size(desired_size)
                 # TODO: take expanded into consideration
-                control.set_pos((cell_size[0] * grid_data.row + self.padding[0], cell_size[1] * grid_data.col + self.padding[1]))
+                pos = (cell_size[0] * grid_data.row + self.padding[0], cell_size[1] * grid_data.col + self.padding[1])
+                control.set_absolute_pos(pos)
 
         return True
+
+
+if typing.TYPE_CHECKING:
+    from .control import Control, ScreenRegion
 

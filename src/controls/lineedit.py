@@ -5,23 +5,21 @@ from .control import Control
 
 
 class LineEdit(Control):
-    _win: curses.window
-
     _text: str
     _cursor: int
     _offset: int
     _change: typing.Callable[[str], typing.Any] | None
     _buffer: str
 
-    def __init__(self, stdscr: curses.window, location: tuple[int, int], width: int):
+    def __init__(self, width: int):
         super().__init__(focus_greedy=True)
-        self._create_window(stdscr, (1, width), location)
         self._text = ""
         self._buffer = ""
         self._cursor = 0
         self._offset = 0
         self._change = None
         self.max_size = 1, None
+        self.set_size((1, width))
 
     def on_focus(self):
         self._buffer = self._text
@@ -44,8 +42,7 @@ class LineEdit(Control):
     def render(self):
         portion = self._text[self._offset:self._offset+self._width].ljust(self._width, " ")
         try:
-            with self.usecolor(self._win):
-                self._win.addnstr(0, 0, portion, self._width)
+            self._win.addnstr(0, 0, portion, self._width)
         except curses.error:
             pass
 

@@ -35,8 +35,8 @@ class ResponseView(Panel):
     __response: Response | None
     __loading: bool
 
-    def __init__(self, parent: App, pos: tuple[int, int], size: tuple[int, int]):
-        super().__init__(parent.stdscr, pos, size)
+    def __init__(self, parent: App):
+        super().__init__()
         self.__response = None
         self.__loading = False
 
@@ -45,7 +45,7 @@ class ResponseView(Panel):
 
         if self.__loading:
             self._win.move(1, 1)
-            self._win.addnstr("Loading...", self.pane_size[1] - 2)
+            #self._win.addnstr("Loading...", self.pane_size[1] - 2)
             return
 
         if self.__response is None:
@@ -55,14 +55,16 @@ class ResponseView(Panel):
             data = self.__response.data.decode('utf-8')
         except:
             logging.exception("failed")
-            self._win.addnstr("[binary data]", self.pane_size[1] - 2)
+            #self._win.addnstr("[binary data]", self.pane_size[1] - 2)
             return
 
         line_no = 1
+        """
         for line in take_lines(data, self.pane_size[1], self.pane_size[0]):
             self._win.move(line_no, 1)
             self._win.addnstr(line, self.pane_size[1])
             line_no += 1
+        """
             
 
     def set_loading(self, loading: bool):

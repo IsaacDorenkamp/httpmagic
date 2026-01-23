@@ -12,15 +12,13 @@ class Label(Control):
     _italic: int
     _underline: int
 
-    def __init__(self, parent: curses.window, pos: tuple[int, int], size: tuple[int, int], text: str = ""):
+    def __init__(self, text: str = ""):
         super().__init__()
-        self._create_window(parent, size, pos)
+        self._win.scrollok(False)
         self._text = text
-
         self._bold = False
         self._italic = False
         self._underline = False
-
         self.__produce_lines()
 
     def handle_input(self, ch: int):
@@ -62,14 +60,12 @@ class Label(Control):
         self.repaint()
 
     def render(self):
-        self._win.scrollok(False)
         for index, line in enumerate(self._lines):
             self._win.move(index, 0)
             try:
                 self._win.addnstr(line, self._size[1], self._bold | self._italic | self._underline)
             except curses.error:
                 pass
-        self._win.scrollok(True)
 
     def __produce_lines(self):
         line = io.StringIO()

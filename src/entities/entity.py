@@ -7,8 +7,6 @@ import uuid
 import types
 import typing
 
-import logging
-
 T = typing.TypeVar("T")
 
 

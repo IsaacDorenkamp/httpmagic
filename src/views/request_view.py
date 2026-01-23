@@ -21,23 +21,23 @@ class RequestView(Panel):
     __url: LineEdit
     __send: Button
 
-    def __init__(self, parent: App, pos: tuple[int, int], size: tuple[int, int]):
-        super().__init__(parent.stdscr, pos, size)
+    def __init__(self, parent: App):
+        super().__init__()
 
         self.__layout = GridLayout()
 
         self.__app = parent
-        self.__method_lbl = Label(self._win, (0, 0), (1, 1), "Method: ")
-        self.__method = OptionBox(self._win, (3, 15), 7)
+        self.__method_lbl = Label("Method: ")
+        self.__method = OptionBox()
         self.__method.change = self.update_method
-        self.__url_lbl = Label(self._win, (0, 0), (1, 1), "URL: ")
-        self.__url = LineEdit(self._win, (3, 28), size[1] - 35)
+        self.__url_lbl = Label("URL: ")
+        self.__url = LineEdit(10)
         self.__url.background = colors.get_color("contrast")
         self.__url.change = self.update_url
 
-        #self.__send = Button(self._win, (size[0] - 4, size[1] - 16), 15, "Send")
-        #self.__send.shortcut = 'S'
-        #self.__send.click = parent.execute_request
+        self.__send = Button("Send")
+        self.__send.shortcut = 'S'
+        self.__send.click = parent.execute_request
 
         for method in Method:
             self.__method.add_option(method.value, colors.color_pair(method.color, self.background))
@@ -45,18 +45,20 @@ class RequestView(Panel):
         self.__method.set_option("GET")
 
         with self.no_repaint():
-            self.add_child(self.__url_lbl)
-            self.add_child(self.__url)
-            #self.add_child(self.__send)
-            self.add_child(self.__method_lbl)
-            self.add_child(self.__method)
+            self.add(self.__url_lbl)
+            self.add(self.__url)
+            self.add(self.__send)
+            self.add(self.__method_lbl)
+            self.add(self.__method)
 
+        """
         self.__layout.padding = (2, 4)
         self.__layout.add_child(self.__method_lbl, GridData(row=0, col=0))
         self.__layout.add_child(self.__method, GridData(row=0, col=1))
         self.__layout.add_child(self.__url_lbl, GridData(row=0, col=2))
         self.__layout.add_child(self.__url, GridData(row=0, col=3, col_span=6))
         self.set_layout(self.__layout)
+        """
 
     def set_method(self, method: Method):
         self.__method.set_option(method)

@@ -1,7 +1,6 @@
 import curses
 import typing
 
-import colors
 from .control import Control
 
 
@@ -11,9 +10,8 @@ class Button(Control):
     _focus_color: int
     _click: typing.Callable[[], typing.Any] | None
 
-    def __init__(self, parent: curses.window, pos: tuple[int, int], width: int, text: str, handler: typing.Callable[[], typing.Any] | None = None):
+    def __init__(self, text: str, handler: typing.Callable[[], typing.Any] | None = None):
         super().__init__()
-        self._create_window(parent, (3, width), pos)
         self._text = text
         self._shortcut = None
         self._focus_color = curses.COLOR_GREEN
@@ -33,9 +31,10 @@ class Button(Control):
             self.repaint()
 
     def render(self):
-        with self.usecolor(self._win, colors.color_pair(self._focus_color if self.focused else self.foreground, self.background)):
-            self._win.border()
+        self._win.border()
         text = self._text[:self._width].ljust(self._width, " ")
+        if self.size[0] < 2 and self.size[1] < 2:
+            return
         self._win.move(1, 1)
         self._win.addnstr(text, self._width - 2)
 

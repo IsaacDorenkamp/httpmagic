@@ -56,31 +56,30 @@ class App:
 
         bounds = stdscr.getmaxyx()
 
-        controls.Control.configure(foreground=colors.get_color("foreground"), background=colors.get_color("background"))
         stdscr.bkgd(colors.color_pair(
             colors.get_color("foreground"),
             colors.get_color("background"),
         ))
         stdscr.refresh()
 
-        self.__collection_pane = controls.Panel(stdscr, (0, 0), (bounds[0] - 2, 50))
-        pane_size = self.__collection_pane.pane_size
-        self.__collection_name = controls.Label(self.__collection_pane.window, (1, 1), (1, pane_size[1]))
+        self.__collection_pane = controls.Panel()
+        pane_size = self.__collection_pane.content_size
+        self.__collection_name = controls.Label()
         self.__collection_name.bold = True
         self.__collection_name.italic = True
         self.__collection_name.underline = True
-        self.__collection = controls.ListBox(self.__collection_pane.window, (2, 1), (pane_size[0] - 1, pane_size[1]))
+        self.__collection = controls.ListBox()
         self.__collection.change = self._request_changed
 
         pane_width = (bounds[1] - 50) // 2
-        self.__request_pane = RequestView(self, (0, 50), (bounds[0] - 2, pane_width))
+        self.__request_pane = RequestView(self)
         self.__request_pane.set_content_visible(False)
-        self.__response_pane = ResponseView(self,(0, 50 + pane_width), (bounds[0] - 2, pane_width))
+        self.__response_pane = ResponseView(self)
 
-        self.__status  = controls.Label(stdscr, (bounds[0] - 2, 0), (1, bounds[1]))
+        self.__status  = controls.Label()
         self.__status.background = colors.get_color("contrast")
         self.__status.foreground = colors.get_color("foreground")
-        self.__command = controls.LineEdit(stdscr, (bounds[0] - 1, 0), bounds[1])
+        self.__command = controls.LineEdit(10)
 
         self.__focus = None
         self.__executor = executor.RequestExecutor()
@@ -91,7 +90,7 @@ class App:
             if collection.requests:
                 self.set_active_request(collection.requests[0])
 
-        self.repaint()
+        self.relayout()
 
     def relayout(self):
         bounds = self.__stdscr.getmaxyx()
@@ -101,36 +100,38 @@ class App:
             collection_width = 50
 
         self.__collection_pane.set_size((bounds[0] - 2, collection_width))
-        self.__collection.set_size((bounds[0] - 4, self.__collection_pane.pane_size[1]))
-        self.__collection_name.set_size((1, self.__collection_pane.pane_size[1]))
+        self.__collection.set_size((bounds[0] - 4, self.__collection_pane.content_size[1]))
+        self.__collection_name.set_size((1, self.__collection_pane.content_size[1]))
 
         pane_width = (bounds[1] - collection_width) // 2
         with self.__request_pane.rearrange():
-            self.__request_pane.set_pos((0, collection_width))
+            self.__request_pane.set_absolute_pos((0, collection_width))
             self.__request_pane.set_size((bounds[0] - 2, pane_width))
 
         with self.__response_pane.rearrange():
-            self.__response_pane.set_pos((0, collection_width + pane_width))
+            self.__response_pane.set_absolute_pos((0, collection_width + pane_width))
             self.__response_pane.set_size((bounds[0] - 2, pane_width))
 
         with self.__command.rearrange():
             self.__command.set_size((1, bounds[1] - 1))
-            self.__command.set_pos((bounds[0] - 1, 0))
+            self.__command.set_absolute_pos((bounds[0] - 1, 0))
 
         with self.__status.rearrange():
             self.__status.set_size((1, bounds[1] - 1))
-            self.__status.set_pos((bounds[0] - 2, 0))
+            self.__status.set_absolute_pos((bounds[0] - 2, 0))
 
         self.repaint()
 
     def repaint(self):
         self.__stdscr.clear()
+        self.__collection_pane.repaint()
+        """
         self.__request_pane.repaint()
         self.__response_pane.repaint()
-        self.__collection_pane.repaint()
         self.__collection_name.repaint()
         self.__collection.repaint()
         self.__status.repaint()
+        """
 
     def update_focus(self):
         if self.__focus is not None and not self.__focus.focused:
@@ -263,8 +264,7 @@ class App:
 
     def set_active_collection(self, collection: Collection):
         self.context.active_collection = collection
-        self.__collection_pane.window.move(1, 1)
-        length = self.__collection_pane.pane_size[1]
+        length = self.__collection_pane.content_size[1]
         self.__collection_name.set_text(util.ellipsize(collection.name, length).ljust(length, " "))
         self.__collection.clear()
         for request in collection.requests:

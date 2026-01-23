@@ -13,9 +13,8 @@ class OptionBox(Control):
     __selection: tuple[str, int] | None
     __change: ChangeHandler | None
 
-    def __init__(self, parent: curses.window, pos: tuple[int, int], width: int):
+    def __init__(self):
         super().__init__()
-        self._create_window(parent, (1, width), pos)
         self.__options = []
         self.__candidate = None
         self.__selection = None

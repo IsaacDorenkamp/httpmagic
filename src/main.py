@@ -41,6 +41,7 @@ def main(stdscr: curses.window) -> int:
     if options.debug:
         begin_debug_mode()
 
+    curses.use_default_colors()
     disable_ctrl_c()
 
     store = persist.PersistStore(options.root)

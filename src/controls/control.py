@@ -1,13 +1,19 @@
+from __future__ import annotations
 from abc import ABCMeta, abstractmethod
+import collections
 import contextlib
 import curses
 import typing
 
 import colors
+from .layout import Layout
 
 
 class CannotFocus(NotImplementedError):
     pass
+
+
+ScreenRegion = collections.namedtuple("ScreenRegion", field_names=["top", "left", "bottom", "right"])
 
 
 class Control(metaclass=ABCMeta):
@@ -32,29 +38,38 @@ class Control(metaclass=ABCMeta):
     __visible: bool
 
     focus_greedy: bool  # Refuses attempts to wrest focus.
-
     max_size: tuple[int | None, int | None]
 
-    def __init__(self, focus_greedy: bool = False):
+    _size: tuple[int, int]
+    _abs_pos: tuple[int, int]  # absolute screen-relative position
+    _rel_pos: tuple[int, int] | None  # parent-relative position, None if no parent
+
+    _parent: Container | None
+
+    def __init__(self, size: tuple[int, int] = (1, 1), abs_pos: tuple[int, int] = (0, 0), focus_greedy: bool = False):
+        # universal properties
+        self._foreground = -1
+        self._background = -1
+        self._size = size
+        self._abs_pos = abs_pos
+        self.max_size = None, None
+
+        self.focus_greedy = focus_greedy
         self.__focused = False
-        self._foreground = Control.g_foreground
-        self._background = Control.g_background
+        self.__visible = True
+
+        self._parent = None
+        self._rel_pos = None
+
+        self._win = curses.newwin(*size, *self._abs_pos)
 
         self.__pause_repaint = False
         self.__need_repaint = False
         self.__rearranging = False
-        self.__visible = True
-        self.focus_greedy = focus_greedy
-        self.max_size = None, None
+        
 
-    def _create_window(self, parent: curses.window, size: tuple[int, int], pos: tuple[int, int]):
-        win = parent.derwin(*size, *pos)
-        win.bkgd(colors.color_pair(self.foreground, self.background))
-        win.refresh()
-        self._size = size
-        self._pos = pos
-        self._win = win
-
+    # Implementation-specific methods to define
+    # behavior on child components.
     def try_focus(self):
         """
         Try to accept focus. If this component
@@ -66,8 +81,6 @@ class Control(metaclass=ABCMeta):
     def focus(self):
         """
         Attempt to grant focus to this control.
-        If the control cannot accept focus, then
-        this function should raise CannotFocus.
         """
         if not self.__focused:
             try:
@@ -113,7 +126,11 @@ class Control(metaclass=ABCMeta):
         """
         raise NotImplementedError()
 
-    def paint(self) -> bool:
+    # Accessible drawing methods
+    def paint(self, erase: bool = False) -> bool:
+        if erase:
+            self._win.erase()
+
         if self.__visible:
             self.render()
             self._win.refresh()
@@ -126,38 +143,68 @@ class Control(metaclass=ABCMeta):
             self.__need_repaint = True
             return
 
-        self._win.erase()
-        if not self.paint():
+        if not self.paint(erase=True):
             self._win.refresh()
 
+    # Spatial Manipulation Methods
     def set_size(self, size: tuple[int, int]) -> bool:
-        self._size = (
+        new_size = (
             size[0] if self.max_size[0] is None else min(self.max_size[0], size[0]),
             size[1] if self.max_size[1] is None else min(self.max_size[1], size[1]),
         )
+        self._size = (
+            max(1, new_size[0]),
+            max(1, new_size[1]),
+        )
         if not self.__rearranging:
-            self._win.resize(*size)
+            self._win.resize(self._size[0], self._size[1])
         return self._size == size
 
-    def set_pos(self, pos: tuple[int, int]):
-        self._pos = pos
-        self._win.mvderwin(*pos)
+    def set_absolute_pos(self, abs_pos: tuple[int, int]):
+        self._set_absolute_pos(abs_pos)
+
+    def set_relative_pos(self, rel_pos: tuple[int, int]):
+        if self._parent is None:
+            raise ValueError("cannot set relative position of parentless control")
+
+        parent_absolute_pos = self._parent.absolute_pos
+        self._rel_pos = rel_pos
+        self._set_absolute_pos((parent_absolute_pos[0] + rel_pos[0], parent_absolute_pos[1] + rel_pos[1]), _update_rel=False)
+
+    # Internal API functions for use by subclasses
+    def _erase(self):
+        self._win.erase()
+
+    def _set_absolute_pos(self, abs_pos: tuple[int, int], _update_rel: bool = True):
+        self._erase()
+        if self._parent is not None and _update_rel:
+            parent_abs_pos = self._parent.absolute_pos
+            self._rel_pos = (
+                parent_abs_pos[0] - abs_pos[0],
+                parent_abs_pos[1] - abs_pos[1]
+            )
+        self._abs_pos = abs_pos
+        self._win.mvwin(*abs_pos)
+        self.repaint()
+
+    @property
+    def size(self) -> tuple[int, int]:
+        return self._size
+
+    @property
+    def absolute_pos(self) -> tuple[int, int]:
+        return self._abs_pos
+
+    @property
+    def relative_pos(self) -> tuple[int, int]:
+        if self._rel_pos is None:
+            raise ValueError("cannot get relative position of parentless control")
+
+        return self._rel_pos
 
     @property
     def focused(self) -> bool:
         return self.__focused
-
-    g_foreground: typing.ClassVar[int] = -1
-    g_background: typing.ClassVar[int] = -1
-
-    @classmethod
-    def configure(
-        cls,
-        foreground: int,
-        background: int,
-    ):
-        cls.g_foreground = foreground
-        cls.g_background = background
 
     @property
     def foreground(self):
@@ -167,7 +214,7 @@ class Control(metaclass=ABCMeta):
     def foreground(self, value: int):
         self._foreground = value
         self._win.bkgd(colors.color_pair(self.foreground, self.background))
-        self.repaint()
+        self._win.refresh()
 
     @property
     def background(self):
@@ -177,17 +224,7 @@ class Control(metaclass=ABCMeta):
     def background(self, value: int):
         self._background = value
         self._win.bkgd(colors.color_pair(self.foreground, self.background))
-        self.repaint()
-
-    @contextlib.contextmanager
-    def usecolor(self, window: curses.window, color_pair: int | None = None):
-        base = colors.color_pair(self.foreground, self.background)
-        attr = color_pair if color_pair is not None else base
-        try:
-            window.attron(attr)
-            yield
-        finally:
-            window.attroff(attr)
+        self._win.refresh()
 
     @contextlib.contextmanager
     def no_repaint(self):
@@ -208,17 +245,8 @@ class Control(metaclass=ABCMeta):
             yield
         finally:
             self.__rearranging = False
-            import logging
-            logging.debug(f"setting size to {self._size}")
             self._win.resize(*self._size)
             self._win.refresh()
-
-    def invert_colors(self):
-        temp = self._foreground
-        self._foreground = self._background
-        self._background = temp
-        self._win.bkgd(colors.color_pair(self.foreground, self.background))
-        self.repaint()
 
     def set_visible(self, visible: bool):
         self.__visible = visible
@@ -227,4 +255,110 @@ class Control(metaclass=ABCMeta):
     @property
     def visible(self) -> bool:
         return self.__visible
+
+    @property
+    def parent(self) -> Container | None:
+        return self._parent
+
+    # TODO: cache this property?
+    @property
+    def screen_region(self) -> ScreenRegion:
+        return ScreenRegion(*(self.absolute_pos + (self.absolute_pos[0] + self.size[0] - 1, self.absolute_pos[1] + self.size[1] - 1)))
+
+
+class Container(Control):
+    _children: list[Control]
+    __layout: Layout | None
+    __content_visible: bool
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._children = []
+        self.__layout = None
+        self.__content_visible = True
+
+    def add(self, control: Control):
+        if control._parent is not None:
+            raise ValueError("control '%s' already belongs to a container!" % str(control))
+
+        self._children.append(control)
+        control._parent = self
+        control.set_relative_pos((0, 0))
+
+    def remove(self, control: Control):
+        self._children.remove(control)
+        control._parent = None
+        control._rel_pos = None
+
+    def render(self):
+        if self.__content_visible:
+            for child in self._children:
+                child.paint()
+
+    def set_size(self, size: tuple[int, int]) -> bool:
+        result = super().set_size(size)
+
+        # constrain children to this container's screen region (top, left, bottom, right)
+        for child in self._children:
+            self._constrain(child)
+
+        self._relayout()
+
+        return result
+
+    def set_layout(self, layout: Layout | None):
+        self.__layout = layout
+        self._relayout()
+
+    def _constrain(self, child: Control):
+        screen_region = self.screen_region
+        child_region = child.screen_region
+        
+        new_region = (
+            min(screen_region[2], max(screen_region[0], child_region[0])),
+            min(screen_region[3], max(screen_region[1], child_region[1])),
+            max(screen_region[0], min(screen_region[2], child_region[2])),
+            max(screen_region[1], min(screen_region[3], child_region[3]))
+        )
+        new_size = (new_region[2] - new_region[0]) + 1, (new_region[3] - new_region[1]) + 1
+        new_pos  = new_region[0], new_region[1]
+        with child.rearrange():
+            child.set_size(new_size)
+            child.set_absolute_pos(new_pos)
+
+    def set_absolute_pos(self, abs_pos: tuple[int, int]):
+        # adjust children based on relative pos
+        abs_pos = self.absolute_pos
+        for child in self._children:
+            rel_pos = child.relative_pos
+            child._set_absolute_pos((abs_pos[0] + rel_pos[0], abs_pos[1] + rel_pos[1]), _update_rel=False)
+        super().set_absolute_pos(abs_pos)
+        self._relayout()
+
+    @contextlib.contextmanager
+    def rearrange(self):
+        with super().rearrange():
+            yield
+        self._relayout()
+
+    def _relayout(self):
+        if self.__layout:
+            self.__layout.arrange(self.content_region)
+
+    def set_content_visible(self, visible: bool):
+        self.__content_visible = visible
+        self.repaint()
+
+    @property
+    def content_visible(self) -> bool:
+        return self.__content_visible
+
+    @property
+    def content_region(self) -> ScreenRegion:
+        return self.screen_region
+
+    @property
+    def content_size(self) -> tuple[int, int]:
+        region = self.content_region
+        return region.bottom - region.top + 1, region.right - region.left + 1
 
