@@ -70,7 +70,7 @@ class ResponseView(Panel):
             self.__loading = loading
             self.repaint()
 
-    def set_response(self, response: Response, reset_loading: bool = True):
+    def set_response(self, response: Response | None, reset_loading: bool = True):
         if self.__response == response:
             return
 

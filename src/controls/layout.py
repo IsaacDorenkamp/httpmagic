@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
-import collections
 import curses
+import logging
 import typing
 
 from .control import Control
@@ -52,18 +52,28 @@ class GridLayout(Layout[GridData]):
     def remove_child(self, child: Control):
         del self._items[child]
 
-    def arrange(self, window: curses.window):
+    def arrange(self, window: curses.window) -> bool:
+        """
+        Arrange the controls managed by this layout in the specified curses window. If anything goes wrong,
+        such as if the calculated cell size has either a height or width of 0, then this will return False.
+        Otherwise, True is returned.
+        """
+
         if not self._items:
-            return
+            return True
 
         size = window.getmaxyx()
         num_rows = max(((grid_data.row + grid_data.row_span - 1) for grid_data in self._items.values())) + 1
         num_cols = max(((grid_data.col + grid_data.col_span - 1) for grid_data in self._items.values())) + 1
+        logging.debug(f"Num cols: {num_cols}")
 
         # TODO: determine cell size. by default, try to expand component to cell,
         # but if not possible, attempt refer to GridData (will need to add new fields)
         # to determine how the component should be positioned within the cell.
-        cell_size = ((size[0] - (2 * self.padding[0])) // num_rows, (num_cols - (2 * self.padding[1])) // num_cols)
+        cell_size = ((size[0] - (2 * self.padding[0])) // num_rows, (size[1] - (2 * self.padding[1])) // num_cols)
+        logging.debug(f"cell_size: {cell_size}")
+        if 0 in cell_size:
+            return False
 
         # TODO: do not just dump remainder at end of container
         for control, grid_data in self._items.items():
@@ -72,4 +82,6 @@ class GridLayout(Layout[GridData]):
                 expanded = control.set_size(desired_size)
                 # TODO: take expanded into consideration
                 control.set_pos((cell_size[0] * grid_data.row + self.padding[0], cell_size[1] * grid_data.col + self.padding[1]))
+
+        return True
 

@@ -2,8 +2,6 @@ import curses
 import enum
 import uuid
 
-import logging
-
 import httpx
 
 import colors
@@ -150,9 +148,9 @@ class App:
                 self.__focus = None
 
     def update(self):
-        for request_key, result in self.__executor.collect():
+        for request_id, result in self.__executor.collect():
             if isinstance(result, httpx.Response):
-                self.set_response(request_key, Response(status=result.status_code, headers=dict(result.headers), data=result.content))
+                self.set_response(request_id, Response(status=result.status_code, headers=dict(result.headers), data=result.content))
 
     def run(self) -> int:
         curses.curs_set(0)
@@ -247,10 +245,11 @@ class App:
             self.__status.set_text("")
 
     # public API
-    def set_response(self, request_key: str, response: Response):
+    def set_response(self, request_key: uuid.UUID, response: Response):
         self.context.responses[request_key] = response
-        if request_key == self.active_request_key:
+        if self.context.active_request and request_key == self.context.active_request.id:
             self.__response_pane.set_response(response)
+            self.__response_pane.set_loading(False)
 
     def create_collection(self, name: str, activate: bool = False) -> Collection:
         new_collection_id = uuid.uuid4()
@@ -276,6 +275,11 @@ class App:
         self.__request_pane.set_method(request.method)
         self.__request_pane.set_url(request.url)
         self.__request_pane.set_content_visible(True)
+
+        status = self.__executor.get_status(request.id)
+        self.__response_pane.set_loading(status == executor.RequestStatus.pending)
+        self.__response_pane.set_response(self.context.responses.get(request.id))
+
         self.__collection.set_selection(self.__collection.find(request.name))
 
     def create_request(self, name: str, activate: bool = False) -> Request:
@@ -330,10 +334,9 @@ class App:
 
 
     def execute_request(self):
-        exec_id = self.active_request_key
-        if exec_id and self.context.active_request:
+        if self.context.active_request:
             self.__response_pane.set_loading(True)
-            self.__executor.dispatch(self.context.active_request, exec_id)
+            self.__executor.dispatch(self.context.active_request, self.context.active_request.id)
 
     def quit(self):
         self.__running = False
@@ -351,13 +354,6 @@ class App:
                 self.set_active_request(request)
 
     # properties
-    @property
-    def active_request_key(self) -> str | None:
-        if self.context.active_collection and self.context.active_request:
-            return f"{self.context.active_collection.name}/{self.context.active_request.name}"
-
-        return None
-
     @property
     def stdscr(self) -> curses.window:
         return self.__stdscr

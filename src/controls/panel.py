@@ -1,11 +1,14 @@
+import contextlib
 import curses
 
 from .control import CannotFocus, Control
+from controls.layout import Layout
 
 
 class Panel(Control):
     __children: list[Control]
     __content_visible: bool
+    __layout: Layout | None
 
     def __init__(self, parent: curses.window, location: tuple[int, int], size: tuple[int, int]):
         super().__init__()
@@ -14,6 +17,13 @@ class Panel(Control):
         self._win.refresh()
         self.__children = []
         self.__content_visible = True
+        self.__layout = None
+
+    def set_layout(self, layout: Layout | None):
+        self.__layout = layout
+        if self.__layout:
+            self.__layout.arrange(self._win)
+            self.repaint()
 
     def render(self):
         self._win.box()
@@ -50,6 +60,16 @@ class Panel(Control):
 
     def handle_input(self, ch: int):
         pass
+
+    @contextlib.contextmanager
+    def rearrange(self):
+        with super().rearrange():
+            yield
+        if self.__layout:
+            import logging
+            logging.debug("REARRANGE")
+            self.__layout.arrange(self._win)
+            self.repaint()
 
     @property
     def window(self) -> curses.window:

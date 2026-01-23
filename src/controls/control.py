@@ -207,9 +207,9 @@ class Control(metaclass=ABCMeta):
         try:
             yield
         finally:
-            import logging
-            logging.debug("done rearranging")
             self.__rearranging = False
+            import logging
+            logging.debug(f"setting size to {self._size}")
             self._win.resize(*self._size)
             self._win.refresh()
 

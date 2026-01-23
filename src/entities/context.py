@@ -1,3 +1,5 @@
+import uuid
+
 from .entity import Entity
 from .request import *
 from .response import *
@@ -14,7 +16,7 @@ class AppContext(Entity):
     # app state
     active_collection: Collection | None
     active_request: Request | None
-    responses: dict[str, Response]
+    responses: dict[uuid.UUID, Response]
 
     @staticmethod
     def create():
