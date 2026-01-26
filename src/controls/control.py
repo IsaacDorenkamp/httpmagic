@@ -6,7 +6,6 @@ import curses
 import typing
 
 import colors
-from .layout import Layout
 
 
 class CannotFocus(NotImplementedError):
@@ -14,6 +13,10 @@ class CannotFocus(NotImplementedError):
 
 
 ScreenRegion = collections.namedtuple("ScreenRegion", field_names=["top", "left", "bottom", "right"])
+
+
+def add_regions(a: ScreenRegion, b: ScreenRegion) -> ScreenRegion:
+    return ScreenRegion(top=a.top + b.top, left=a.left + b.left, bottom=a.bottom + b.bottom, right=a.right + b.right)
 
 
 class Control(metaclass=ABCMeta):
@@ -184,6 +187,7 @@ class Control(metaclass=ABCMeta):
                 parent_abs_pos[1] - abs_pos[1]
             )
         self._abs_pos = abs_pos
+        import logging
         self._win.mvwin(*abs_pos)
         self.repaint()
 
@@ -246,7 +250,7 @@ class Control(metaclass=ABCMeta):
         finally:
             self.__rearranging = False
             self._win.resize(*self._size)
-            self._win.refresh()
+            self.repaint()
 
     def set_visible(self, visible: bool):
         self.__visible = visible
@@ -328,7 +332,6 @@ class Container(Control):
 
     def set_absolute_pos(self, abs_pos: tuple[int, int]):
         # adjust children based on relative pos
-        abs_pos = self.absolute_pos
         for child in self._children:
             rel_pos = child.relative_pos
             child._set_absolute_pos((abs_pos[0] + rel_pos[0], abs_pos[1] + rel_pos[1]), _update_rel=False)
@@ -361,4 +364,8 @@ class Container(Control):
     def content_size(self) -> tuple[int, int]:
         region = self.content_region
         return region.bottom - region.top + 1, region.right - region.left + 1
+
+
+if typing.TYPE_CHECKING:
+    from .layout import Layout
 

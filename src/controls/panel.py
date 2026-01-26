@@ -9,9 +9,6 @@ class Panel(Container):
         pass
 
     def render(self):
-        import logging
-        logging.debug(f"pos: {self._win.getbegyx()}")
-        logging.debug(f"size: {self._win.getmaxyx()}")
         self._win.border()
         self._win.refresh()
         super().render()

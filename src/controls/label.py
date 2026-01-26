@@ -1,6 +1,7 @@
 import curses
 import io
 
+import colors
 from .control import Control
 
 
@@ -67,6 +68,11 @@ class Label(Control):
             except curses.error:
                 pass
 
+    def set_size(self, size: tuple[int, int]):
+        result = super().set_size(size)
+        self.__produce_lines()
+        return result
+
     def __produce_lines(self):
         line = io.StringIO()
         lines = []
@@ -94,5 +100,5 @@ class Label(Control):
         if remainder:
             lines.append(remainder)
 
-        self._lines = lines
+        self._lines = lines[:self._size[0]]
 

@@ -123,15 +123,12 @@ class App:
         self.repaint()
 
     def repaint(self):
-        self.__stdscr.clear()
+        self.__stdscr.erase()
+        self.__stdscr.refresh()
         self.__collection_pane.repaint()
-        """
         self.__request_pane.repaint()
         self.__response_pane.repaint()
-        self.__collection_name.repaint()
-        self.__collection.repaint()
         self.__status.repaint()
-        """
 
     def update_focus(self):
         if self.__focus is not None and not self.__focus.focused:

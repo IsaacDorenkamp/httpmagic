@@ -5,7 +5,7 @@ import typing
 
 import colors
 from controls import Button, OptionBox, Label, LineEdit, Panel
-from controls.layout import GridData, GridLayout
+from controls.layout import LineFlexData, LineFlexLayout
 from entities.request import Method
 
 if typing.TYPE_CHECKING:
@@ -15,16 +15,12 @@ if typing.TYPE_CHECKING:
 class RequestView(Panel):
     __app: App
 
-    __layout: GridLayout
-
     __method: OptionBox
     __url: LineEdit
     __send: Button
 
     def __init__(self, parent: App):
         super().__init__()
-
-        self.__layout = GridLayout()
 
         self.__app = parent
         self.__method_lbl = Label("Method: ")
@@ -51,14 +47,12 @@ class RequestView(Panel):
             self.add(self.__method_lbl)
             self.add(self.__method)
 
-        """
-        self.__layout.padding = (2, 4)
-        self.__layout.add_child(self.__method_lbl, GridData(row=0, col=0))
-        self.__layout.add_child(self.__method, GridData(row=0, col=1))
-        self.__layout.add_child(self.__url_lbl, GridData(row=0, col=2))
-        self.__layout.add_child(self.__url, GridData(row=0, col=3, col_span=6))
+        self.__layout = LineFlexLayout()
+        self.__layout.add_child(self.__method_lbl, LineFlexData(line=0, order=0, min_width=8))
+        self.__layout.add_child(self.__method, LineFlexData(line=0, order=1, min_width=8))
+        self.__layout.add_child(self.__url_lbl, LineFlexData(line=0, order=2, min_width=5))
+        self.__layout.add_child(self.__url, LineFlexData(line=0, order=3, min_width=1))
         self.set_layout(self.__layout)
-        """
 
     def set_method(self, method: Method):
         self.__method.set_option(method)
