@@ -19,19 +19,19 @@ class RequestView(Panel):
     __url: LineEdit
     __send: Button
 
-    def __init__(self, parent: App):
-        super().__init__()
+    def __init__(self, abs_pos: tuple[int, int], size: tuple[int, int], parent: App):
+        super().__init__(abs_pos=abs_pos, size=size)
 
         self.__app = parent
-        self.__method_lbl = Label("Method: ")
-        self.__method = OptionBox()
+        self.__method_lbl = Label("Method: ", parent=self._win)
+        self.__method = OptionBox(parent=self._win)
         self.__method.change = self.update_method
-        self.__url_lbl = Label("URL: ")
-        self.__url = LineEdit(10)
+        self.__url_lbl = Label("URL: ", parent=self._win)
+        self.__url = LineEdit(10, parent=self._win)
         self.__url.background = colors.get_color("contrast")
         self.__url.change = self.update_url
 
-        self.__send = Button("Send")
+        self.__send = Button("Send", parent=self._win)
         self.__send.shortcut = 'S'
         self.__send.click = parent.execute_request
 
@@ -51,7 +51,9 @@ class RequestView(Panel):
         self.__layout.add_child(self.__method_lbl, LineFlexData(line=0, order=0, min_width=8))
         self.__layout.add_child(self.__method, LineFlexData(line=0, order=1, min_width=8))
         self.__layout.add_child(self.__url_lbl, LineFlexData(line=0, order=2, min_width=5))
-        self.__layout.add_child(self.__url, LineFlexData(line=0, order=3, min_width=1))
+        self.__layout.add_child(self.__url, LineFlexData(line=0, order=3, stretch=True, min_width=1))
+        self.__layout.add_child(self.__send, LineFlexData(line=2, order=0, stretch=False, min_width=6))
+        self.__layout.set_line_weight(1, 1)
         self.set_layout(self.__layout)
 
     def set_method(self, method: Method):

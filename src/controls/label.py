@@ -1,7 +1,6 @@
 import curses
 import io
 
-import colors
 from .control import Control
 
 
@@ -13,8 +12,8 @@ class Label(Control):
     _italic: int
     _underline: int
 
-    def __init__(self, text: str = ""):
-        super().__init__()
+    def __init__(self, text: str = "", *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._win.scrollok(False)
         self._text = text
         self._bold = False
@@ -61,6 +60,14 @@ class Label(Control):
         self.repaint()
 
     def render(self):
+        if not self._lines:
+            self._win.move(0, 0)
+            try:
+                self._win.addnstr(" " * self._size[1], self._size[1], self._bold | self._italic | self._underline)
+            except curses.error:
+                pass
+            return
+
         for index, line in enumerate(self._lines):
             self._win.move(index, 0)
             try:

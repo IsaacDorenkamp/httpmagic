@@ -15,8 +15,8 @@ class CannotFocus(NotImplementedError):
 ScreenRegion = collections.namedtuple("ScreenRegion", field_names=["top", "left", "bottom", "right"])
 
 
-def add_regions(a: ScreenRegion, b: ScreenRegion) -> ScreenRegion:
-    return ScreenRegion(top=a.top + b.top, left=a.left + b.left, bottom=a.bottom + b.bottom, right=a.right + b.right)
+def shift_region(a: ScreenRegion, offset: tuple[int, int]) -> ScreenRegion:
+    return ScreenRegion(top=a.top + offset[0], left=a.left + offset[1], bottom=a.bottom + offset[0], right=a.right + offset[1])
 
 
 class Control(metaclass=ABCMeta):
@@ -49,12 +49,11 @@ class Control(metaclass=ABCMeta):
 
     _parent: Container | None
 
-    def __init__(self, size: tuple[int, int] = (1, 1), abs_pos: tuple[int, int] = (0, 0), focus_greedy: bool = False):
+    def __init__(self, size: tuple[int, int] = (1, 1), abs_pos: tuple[int, int] | None = None, parent: curses.window | None = None, focus_greedy: bool = False):
         # universal properties
         self._foreground = -1
         self._background = -1
         self._size = size
-        self._abs_pos = abs_pos
         self.max_size = None, None
 
         self.focus_greedy = focus_greedy
@@ -64,7 +63,12 @@ class Control(metaclass=ABCMeta):
         self._parent = None
         self._rel_pos = None
 
-        self._win = curses.newwin(*size, *self._abs_pos)
+        if parent:
+            parent_pos = parent.getbegyx()
+            self._win = parent.subwin(*size, *(abs_pos or parent_pos))
+        else:
+            self._abs_pos = abs_pos or (0, 0)
+            self._win = curses.newwin(*size, *self._abs_pos)
 
         self.__pause_repaint = False
         self.__need_repaint = False

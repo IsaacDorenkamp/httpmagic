@@ -35,8 +35,8 @@ class ResponseView(Panel):
     __response: Response | None
     __loading: bool
 
-    def __init__(self, parent: App):
-        super().__init__()
+    def __init__(self, abs_pos: tuple[int, int], size: tuple[int, int], parent: App):
+        super().__init__(abs_pos=abs_pos, size=size)
         self.__response = None
         self.__loading = False
 

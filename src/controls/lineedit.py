@@ -11,15 +11,14 @@ class LineEdit(Control):
     _change: typing.Callable[[str], typing.Any] | None
     _buffer: str
 
-    def __init__(self, width: int):
-        super().__init__(focus_greedy=True)
+    def __init__(self, width: int, *args, **kwargs):
+        super().__init__(size=(1, width), focus_greedy=True, *args, **kwargs)
         self._text = ""
         self._buffer = ""
         self._cursor = 0
         self._offset = 0
         self._change = None
         self.max_size = 1, None
-        self.set_size((1, width))
 
     def on_focus(self):
         self._buffer = self._text
@@ -56,6 +55,8 @@ class LineEdit(Control):
             self._text = self._text[:self._cursor] + chr(ch) + self._text[self._cursor:]
             self._cursor += 1
         elif ch == curses.KEY_BACKSPACE or ch == 127:
+            if self._cursor == 0:
+                return
             self._text = self._text[:self._cursor-1] + self._text[self._cursor:]
             self._cursor -= 1
         elif ch == curses.KEY_LEFT:
@@ -103,4 +104,9 @@ class LineEdit(Control):
     def _width(self) -> int:
         return self._size[1]
 
+    def set_size(self, size: tuple[int, int]) -> bool:
+        result = super().set_size(size)
+        self.__pull_offset()
+        self.repaint()
+        return result
 

@@ -4,7 +4,7 @@ import bisect
 import logging
 import typing
 
-from .control import add_regions, Control, ScreenRegion
+from .control import shift_region, Control, ScreenRegion
 
 
 T = typing.TypeVar("T")
@@ -117,25 +117,28 @@ class LineFlexLayout(Layout[LineFlexData]):
         del self.__items[child]
         self.__positions.clear()
 
+    def set_line_weight(self, line: int, weight: int):
+        self.__line_weights[line] = weight
+        self.__positions.clear()
+
     def arrange(self, abs_region: ScreenRegion):
         self.__recompute(abs_region)
         for local_region, control in self.__positions:
-            control_abs_region = add_regions(abs_region, local_region)
+            control_abs_region = shift_region(local_region, (abs_region.top, abs_region.left))
             with control.rearrange():
                 control.set_absolute_pos((control_abs_region.top, control_abs_region.left))
                 control.set_size((control_abs_region.bottom - control_abs_region.top + 1, control_abs_region.right - control_abs_region.left + 1))
 
     def __recompute(self, abs_region: ScreenRegion):
         total_lines = max(line_data.line for line_data in self.__items.values()) + 1
-        by_line: list[list[tuple[Control, LineFlexData]]] = [[] * total_lines]
+        by_line: list[list[tuple[Control, LineFlexData]]] = [[] for _ in range(total_lines)]
         for control, data in self.__items.items():
             bisect.insort(by_line[data.line], (control, data), key=lambda data: data[1].order)
 
         total_weights = sum(weight for weight in self.__line_weights.values())
         total_zero_lines = sum(1 if self.__line_weights.get(line_no, 0) == 0 else 0 for line_no in range(total_lines))
 
-        rows, columns = abs_region.right - abs_region.left + 1, abs_region.bottom - abs_region.top + 1
-        logging.debug("rows, columns: %d, %d" % (rows, columns))
+        rows, columns = abs_region.bottom - abs_region.top + 1, abs_region.right - abs_region.left + 1
 
         num_weighted_rows = max(0, rows - total_zero_lines)
         weight_unit = max(1, num_weighted_rows // max(1, total_weights))
@@ -170,12 +173,10 @@ class LineFlexLayout(Layout[LineFlexData]):
 
             column_pos = 0
             for column_no, column_width in enumerate(control_widths):
-                logging.debug("column_width: %d" % column_width)
                 self.__positions.append((
                     ScreenRegion(top=current_row, left=column_pos, bottom=current_row + row_height - 1, right=column_pos + column_width - 1),
                     line[column_no][0]
                 ))
-                logging.debug("added position: %s" % str(self.__positions[-1]))
                 column_pos += column_width
 
             if available_rows == 0:

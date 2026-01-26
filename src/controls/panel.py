@@ -2,8 +2,8 @@ from .control import CannotFocus, Container, ScreenRegion
 
 
 class Panel(Container):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def handle_input(self, ch: int):
         pass

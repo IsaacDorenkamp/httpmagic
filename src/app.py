@@ -62,9 +62,8 @@ class App:
         ))
         stdscr.refresh()
 
-        self.__collection_pane = controls.Panel()
-        pane_size = self.__collection_pane.content_size
-        self.__collection_name = controls.Label()
+        self.__collection_pane = controls.Panel(abs_pos=(0, 0), size=(bounds[0] - 2, 50))
+        self.__collection_name = controls.Label(parent=self.__collection_pane._win)
         self.__collection_name.bold = True
         self.__collection_name.italic = True
         self.__collection_name.underline = True
@@ -72,14 +71,14 @@ class App:
         self.__collection.change = self._request_changed
 
         pane_width = (bounds[1] - 50) // 2
-        self.__request_pane = RequestView(self)
+        self.__request_pane = RequestView(abs_pos=(0, self.__collection_pane.size[1]), size=(bounds[0] - 2, pane_width), parent=self)
         self.__request_pane.set_content_visible(False)
-        self.__response_pane = ResponseView(self)
+        self.__response_pane = ResponseView(abs_pos=(0, self.__collection_pane.size[1] + pane_width), size=(bounds[0] - 2, (bounds[1] - 50) - pane_width), parent=self)
 
-        self.__status  = controls.Label()
+        self.__status  = controls.Label(abs_pos=(bounds[0] - 2, 0), size=(1, bounds[1]))
         self.__status.background = colors.get_color("contrast")
         self.__status.foreground = colors.get_color("foreground")
-        self.__command = controls.LineEdit(10)
+        self.__command = controls.LineEdit(bounds[1], abs_pos=(bounds[0] - 1, 0))
 
         self.__focus = None
         self.__executor = executor.RequestExecutor()
@@ -90,7 +89,8 @@ class App:
             if collection.requests:
                 self.set_active_request(collection.requests[0])
 
-        self.relayout()
+        #self.relayout()
+        self.repaint()
 
     def relayout(self):
         bounds = self.__stdscr.getmaxyx()
@@ -129,6 +129,7 @@ class App:
         self.__request_pane.repaint()
         self.__response_pane.repaint()
         self.__status.repaint()
+        self.__command.repaint()
 
     def update_focus(self):
         if self.__focus is not None and not self.__focus.focused:

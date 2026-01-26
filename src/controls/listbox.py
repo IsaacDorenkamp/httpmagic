@@ -15,8 +15,8 @@ class ListBox(Control):
     _prev_selection: int
     _change: typing.Callable[[str | None], typing.Any] | None
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent: curses.window | None = None):
+        super().__init__(parent=parent)
         self._items = []
         self._selection = -1
         self._prev_selection = -1
@@ -147,9 +147,6 @@ class ListBox(Control):
         usecolor = row == self._selection
         attr = colors.color_pair(self.background, self.foreground if self.focused else colors.get_color("contrast"))
         back_attr = colors.color_pair(self.foreground, self.background)
-        import logging
-        logging.debug(f"size: {self._size}")
-        logging.debug(f"render_row: {render_row}")
         try:
             self._win.addnstr(util.ellipsize(self._items[row], self._size[1]).ljust(self._size[1], " "), attr if usecolor else back_attr, self._size[1])
         except curses.error:
