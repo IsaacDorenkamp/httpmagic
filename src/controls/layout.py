@@ -102,11 +102,13 @@ class LineFlexData:
 class LineFlexLayout(Layout[LineFlexData]):
     __items: dict[Control, LineFlexData]
     __line_weights: dict[int, int]
+    __line_min_height: dict[int, int]
     __positions: list[tuple[ScreenRegion, Control]]
 
     def __init__(self):
         self.__items = {}
         self.__line_weights = {}
+        self.__line_min_height = {}
         self.__positions = []
 
     def add_child(self, child: Control, data: LineFlexData):
@@ -120,6 +122,9 @@ class LineFlexLayout(Layout[LineFlexData]):
     def set_line_weight(self, line: int, weight: int):
         self.__line_weights[line] = weight
         self.__positions.clear()
+
+    def set_line_min_height(self, line: int, min_height: int):
+        self.__line_min_height[line] = min_height
 
     def arrange(self, abs_region: ScreenRegion):
         self.__recompute(abs_region)
@@ -136,7 +141,7 @@ class LineFlexLayout(Layout[LineFlexData]):
             bisect.insort(by_line[data.line], (control, data), key=lambda data: data[1].order)
 
         total_weights = sum(weight for weight in self.__line_weights.values())
-        total_zero_lines = sum(1 if self.__line_weights.get(line_no, 0) == 0 else 0 for line_no in range(total_lines))
+        total_zero_lines = sum(self.__line_min_height.get(line_no, 1) if self.__line_weights.get(line_no, 0) == 0 else 0 for line_no in range(total_lines))
 
         rows, columns = abs_region.bottom - abs_region.top + 1, abs_region.right - abs_region.left + 1
 
@@ -147,7 +152,7 @@ class LineFlexLayout(Layout[LineFlexData]):
         current_row = 0
         for line_no, line in enumerate(by_line):
             weight = self.__line_weights.get(line_no, 0)
-            want_rows = 1 if weight == 0 else weight * weight_unit
+            want_rows = max(self.__line_min_height.get(line_no, 1), 1 if weight == 0 else weight * weight_unit)
             row_height = min(available_rows, want_rows)
             available_rows -= row_height
 

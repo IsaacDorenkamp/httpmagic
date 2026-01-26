@@ -54,6 +54,7 @@ class RequestView(Panel):
         self.__layout.add_child(self.__url, LineFlexData(line=0, order=3, stretch=True, min_width=1))
         self.__layout.add_child(self.__send, LineFlexData(line=2, order=0, stretch=False, min_width=6))
         self.__layout.set_line_weight(1, 1)
+        self.__layout.set_line_min_height(2, 3)
         self.set_layout(self.__layout)
 
     def set_method(self, method: Method):

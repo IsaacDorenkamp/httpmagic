@@ -328,7 +328,7 @@ class App:
             raise ValueError("A collection named '%s' already exists." % name)
 
         self.context.active_collection.name = name
-        self.__collection_name.set_text(name.ljust(self.__collection_pane.pane_size[1], " "))
+        self.__collection_name.set_text(name.ljust(self.__collection_pane.content_size[1], " "))
 
 
     def execute_request(self):
