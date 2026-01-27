@@ -1,7 +1,6 @@
 from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 import bisect
-import logging
 import typing
 
 from .control import shift_region, Control, ScreenRegion

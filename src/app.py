@@ -62,7 +62,7 @@ class App:
         ))
         stdscr.refresh()
 
-        self.__collection_pane = CollectionPane(abs_pos=(0, 0), size=(bounds[0] - 2, 50))
+        self.__collection_pane = CollectionPane(abs_pos=(0, 0), size=(bounds[0] - 2, 50), parent=stdscr)
         self.__collection_pane.requests.change = self._request_changed
 
         pane_width = (bounds[1] - 50) // 2
@@ -165,6 +165,8 @@ class App:
                 can_take_focus = self.__focus is None or (self.__focus is not None and not self.__focus.focus_greedy)
                 if ch == ord(':') and can_take_focus:
                     self.begin_command()
+                elif ch == ord('T'):
+                    self.set_focus(self.__response_pane.tabs)
                 elif self.__focus is not None:
                     self.__focus.handle_input(ch)
                 elif ch == controls.Control.CTRL_S:

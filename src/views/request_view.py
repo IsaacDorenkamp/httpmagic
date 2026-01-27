@@ -23,13 +23,10 @@ class RequestView(TitledPanel):
     __request_name: str
 
     def __init__(self, abs_pos: tuple[int, int], size: tuple[int, int], parent: App):
-        super().__init__(title="", abs_pos=abs_pos, size=size)
+        super().__init__(title="", abs_pos=abs_pos, size=size, parent=parent.stdscr)
 
         self.__dirty = False
         self.__request_name = ""
-
-        self.foreground = colors.get_color("foreground")
-        self.background = colors.get_color("background")
 
         self.padding = 1, 2
 

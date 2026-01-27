@@ -51,8 +51,8 @@ class Control(metaclass=ABCMeta):
 
     def __init__(self, size: tuple[int, int] = (1, 1), abs_pos: tuple[int, int] | None = None, parent: curses.window | None = None, focus_greedy: bool = False):
         # universal properties
-        self._foreground = -1
-        self._background = -1
+        self._foreground = colors.get_color("foreground")
+        self._background = colors.get_color("background")
         self._size = size
         self.max_size = None, None
 
@@ -63,11 +63,11 @@ class Control(metaclass=ABCMeta):
         self._parent = None
         self._rel_pos = None
 
+        self._abs_pos = abs_pos or (0, 0)
         if parent:
             parent_pos = parent.getbegyx()
             self._win = parent.subwin(*size, *(abs_pos or parent_pos))
         else:
-            self._abs_pos = abs_pos or (0, 0)
             self._win = curses.newwin(*size, *self._abs_pos)
 
         self.__pause_repaint = False
@@ -140,8 +140,6 @@ class Control(metaclass=ABCMeta):
 
         if self.__visible:
             self.render()
-            import logging
-            logging.debug("refreshing")
             self._win.refresh()
             return True
 
@@ -193,7 +191,6 @@ class Control(metaclass=ABCMeta):
                 parent_abs_pos[1] - abs_pos[1]
             )
         self._abs_pos = abs_pos
-        import logging
         self._win.mvwin(*abs_pos)
         self.repaint()
 
@@ -300,10 +297,20 @@ class Container(Control):
         control._parent = None
         control._rel_pos = None
 
+    def paint(self, erase: bool = False):
+        if erase:
+            self._win.erase()
+            self._win.refresh()
+
+        if self.visible:
+            self.render()
+
+        return True
+
     def render(self):
         if self.__content_visible:
             for child in self._children:
-                child.paint()
+                child.repaint()
 
     def set_size(self, size: tuple[int, int]) -> bool:
         result = super().set_size(size)

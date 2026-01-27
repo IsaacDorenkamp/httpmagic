@@ -39,7 +39,7 @@ class TitledPanel(Panel):
 
     def render(self):
         super().render()
-        self.__draw_title()
+        self.__draw_title(True)
 
     def __draw_title(self, refresh: bool = False):
         self._win.move(0, 0)

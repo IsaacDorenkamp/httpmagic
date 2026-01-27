@@ -1,6 +1,5 @@
 import typing
 
-import colors
 from controls import Label, ListBox, Panel
 from controls.layout import LineFlexData, LineFlexLayout
 
@@ -18,8 +17,6 @@ class CollectionPane(Panel):
         self.__name.fill = True
 
         self.__requests = ListBox(parent=self._win)
-        self.__requests.foreground = colors.get_color("foreground")
-        self.__requests.background = colors.get_color("background")
 
         self.add(self.__name)
         self.add(self.__requests)
