@@ -4,7 +4,7 @@ from .label import Label
 from .lineedit import LineEdit
 from .listbox import ListBox
 from .optionbox import OptionBox
-from .panel import Panel
+from .panel import Panel, TitledPanel
 
-__all__ = ['Button', 'CannotFocus', 'Control', 'Label', 'LineEdit', 'ListBox', 'OptionBox', 'Panel']
+__all__ = ['Button', 'CannotFocus', 'Control', 'Label', 'LineEdit', 'ListBox', 'OptionBox', 'Panel', 'TitledPanel']
 

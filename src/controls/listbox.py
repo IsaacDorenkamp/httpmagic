@@ -32,7 +32,7 @@ class ListBox(Control):
         self._prev_selection = self._selection
         if self._selection == -1 and self._items:
             self._selection = 0
-            self.__draw_row(0)
+            self.__draw_row(0, refresh=True)
 
     def on_focus(self):
         self.repaint()
@@ -113,9 +113,6 @@ class ListBox(Control):
         for row in range(self._scroll, self._scroll + self._size[0]):
             self.__draw_row(row)
 
-        if self._selection >= 0:
-            self._win.move(self._selection - self._scroll, 0)
-
     def set_selection(self, index: int):
         if index == -1:
             to_rerender = self._selection
@@ -139,20 +136,23 @@ class ListBox(Control):
             self.__draw_row(actual_row, refresh=True)
 
     def __draw_row(self, row: int, refresh: bool = False):
+        back_attr = colors.color_pair(self.foreground, self.background)
         if row > len(self._items) - 1 or row == -1:
+            try:
+                self._win.addnstr(" " * self._size[1], self._size[1], back_attr)
+            except curses.error:
+                pass
             return
 
         render_row = row - self._scroll
         self._win.move(render_row, 0)
         usecolor = row == self._selection
         attr = colors.color_pair(self.background, self.foreground if self.focused else colors.get_color("contrast"))
-        back_attr = colors.color_pair(self.foreground, self.background)
         try:
-            self._win.addnstr(util.ellipsize(self._items[row], self._size[1]).ljust(self._size[1], " "), attr if usecolor else back_attr, self._size[1])
+            self._win.addnstr(util.ellipsize(self._items[row], self._size[1]).ljust(self._size[1], " "),  self._size[1], attr if usecolor else back_attr)
         except curses.error:
             pass
 
-        self._win.move(render_row, 0)
         if refresh:
             self._win.refresh()
 

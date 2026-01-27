@@ -99,6 +99,14 @@ class LineFlexData:
         self.min_width = min_width
 
 
+class Spacer(Control):
+    def render(self):
+        pass
+
+    def handle_input(self, ch: int):
+        pass
+
+
 class LineFlexLayout(Layout[LineFlexData]):
     __items: dict[Control, LineFlexData]
     __line_weights: dict[int, int]
@@ -114,6 +122,11 @@ class LineFlexLayout(Layout[LineFlexData]):
     def add_child(self, child: Control, data: LineFlexData):
         self.__items[child] = data
         self.__positions.clear()
+
+    def add_spacer(self, data: LineFlexData) -> Spacer:
+        spacer = Spacer()
+        self.__items[spacer] = data
+        return spacer
 
     def remove_child(self, child: Control):
         del self.__items[child]

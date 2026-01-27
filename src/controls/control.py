@@ -140,6 +140,8 @@ class Control(metaclass=ABCMeta):
 
         if self.__visible:
             self.render()
+            import logging
+            logging.debug("refreshing")
             self._win.refresh()
             return True
 

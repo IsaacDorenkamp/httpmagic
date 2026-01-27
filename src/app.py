@@ -16,6 +16,7 @@ import util
 from persist import PersistStore
 from views.request_view import RequestView
 from views.response_view import ResponseView
+from views.collection_view import CollectionPane
 
 
 class Mode(enum.Enum):
@@ -32,8 +33,7 @@ class App:
     __running: bool
 
     # UI
-    __collection_pane: controls.Panel
-    __collection: controls.ListBox
+    __collection_pane: CollectionPane
     __command: controls.LineEdit
 
     __request_pane: RequestView
@@ -62,13 +62,8 @@ class App:
         ))
         stdscr.refresh()
 
-        self.__collection_pane = controls.Panel(abs_pos=(0, 0), size=(bounds[0] - 2, 50))
-        self.__collection_name = controls.Label(parent=self.__collection_pane._win)
-        self.__collection_name.bold = True
-        self.__collection_name.italic = True
-        self.__collection_name.underline = True
-        self.__collection = controls.ListBox()
-        self.__collection.change = self._request_changed
+        self.__collection_pane = CollectionPane(abs_pos=(0, 0), size=(bounds[0] - 2, 50))
+        self.__collection_pane.requests.change = self._request_changed
 
         pane_width = (bounds[1] - 50) // 2
         self.__request_pane = RequestView(abs_pos=(0, self.__collection_pane.size[1]), size=(bounds[0] - 2, pane_width), parent=self)
@@ -100,8 +95,6 @@ class App:
             collection_width = 50
 
         self.__collection_pane.set_size((bounds[0] - 2, collection_width))
-        self.__collection.set_size((bounds[0] - 4, self.__collection_pane.content_size[1]))
-        self.__collection_name.set_size((1, self.__collection_pane.content_size[1]))
 
         pane_width = (bounds[1] - collection_width) // 2
         with self.__request_pane.rearrange():
@@ -175,7 +168,7 @@ class App:
                 elif self.__focus is not None:
                     self.__focus.handle_input(ch)
                 elif ch == controls.Control.CTRL_S:
-                    self.set_focus(self.__collection)
+                    self.set_focus(self.__collection_pane.requests)
                 else:
                     self.__request_pane.handle_input(ch)
             else:
@@ -260,16 +253,28 @@ class App:
             self.set_active_collection(new_collection)
         return new_collection
 
+    def save_active_request(self):
+        if self.context.active_collection and self.context.active_request:
+            try:
+                self.context.dirty.remove(self.context.active_request.id)
+            except KeyError:
+                raise ValueError("Request is up to date.")
+            self.store.save_request(self.store.get_collection_root(self.context.active_collection), self.context.active_request)
+            self.__request_pane.set_dirty(False)
+        else:
+            raise ValueError("There must be an active request to save.")
+
     def set_active_collection(self, collection: Collection):
         self.context.active_collection = collection
-        length = self.__collection_pane.content_size[1]
-        self.__collection_name.set_text(util.ellipsize(collection.name, length).ljust(length, " "))
-        self.__collection.clear()
-        for request in collection.requests:
-            self.__collection.add_item(request.name)
+        self.__collection_pane.set_name(collection.name)
+        self.__collection_pane.set_requests(request.name for request in collection.requests)
 
     def set_active_request(self, request: Request):
+        if not self.context.active_collection:
+            raise ValueError("There must be an active collection to set the active request.")
+
         self.context.active_request = request
+        self.__request_pane.set_request_name(f"{self.context.active_collection.name} - {request.name}", dirty=request.id in self.context.dirty)
         self.__request_pane.set_method(request.method)
         self.__request_pane.set_url(request.url)
         self.__request_pane.set_content_visible(True)
@@ -278,7 +283,7 @@ class App:
         self.__response_pane.set_loading(status == executor.RequestStatus.pending)
         self.__response_pane.set_response(self.context.responses.get(request.id))
 
-        self.__collection.set_selection(self.__collection.find(request.name))
+        self.__collection_pane.set_selected_request(request.name)
 
     def create_request(self, name: str, activate: bool = False) -> Request:
         if self.context.active_collection is None:
@@ -293,7 +298,7 @@ class App:
         new_request = Request(id=new_id, name=name, method="GET", url="http://httpbin.org/get", headers={})
         self.store.save_request(self.store.get_collection_root(self.context.active_collection), new_request)
         self.context.active_collection.requests.append(new_request)
-        self.__collection.insort_item(name, key=str.lower, select=True)
+        self.__collection_pane.requests.insort_item(name, key=str.lower, select=True)
         if activate:
             self.set_active_request(new_request)
         return new_request
@@ -308,12 +313,14 @@ class App:
         if existing is not None:
             raise ValueError("A request named '%s' already exists in this collection." % name)
 
-        index = self.__collection.find(self.context.active_request.name)
+        requests = self.__collection_pane.requests
+        index = requests.find(self.context.active_request.name)
         if index >= 0:
-            self.__collection.set_item(index, name, resort=str.lower)
-            new_index = self.__collection.find(name)
+            requests.set_item(index, name, resort=str.lower)
+            new_index = requests.find(name)
             self.context.active_request.name = name
-            self.__collection.set_selection(new_index)
+            requests.set_selection(new_index)
+            self.__request_pane.set_request_name(f"{self.context.active_collection.name} - {self.context.active_request.name}")
         else:
             raise ValueError("Request '%s' does not exist in the current collection." % self.context.active_request.name)
 
@@ -328,8 +335,7 @@ class App:
             raise ValueError("A collection named '%s' already exists." % name)
 
         self.context.active_collection.name = name
-        self.__collection_name.set_text(name.ljust(self.__collection_pane.content_size[1], " "))
-
+        self.__collection_pane.set_name(name)
 
     def execute_request(self):
         if self.context.active_request:

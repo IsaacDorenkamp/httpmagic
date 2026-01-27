@@ -11,6 +11,7 @@ class Label(Control):
     _bold: int
     _italic: int
     _underline: int
+    _fill: bool
 
     def __init__(self, text: str = "", *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -19,6 +20,7 @@ class Label(Control):
         self._bold = False
         self._italic = False
         self._underline = False
+        self._fill = False
         self.__produce_lines()
 
     def handle_input(self, ch: int):
@@ -59,11 +61,20 @@ class Label(Control):
         self._underline = curses.A_UNDERLINE if value else 0
         self.repaint()
 
+    @property
+    def fill(self) -> bool:
+        return self._fill
+
+    @fill.setter
+    def fill(self, value: bool):
+        self._fill = value
+        self.repaint()
+
     def render(self):
         if not self._lines:
             self._win.move(0, 0)
             try:
-                self._win.addnstr(" " * self._size[1], self._size[1], self._bold | self._italic | self._underline)
+                self._win.addnstr(" " * self._size[1], self._size[1])
             except curses.error:
                 pass
             return
@@ -71,7 +82,7 @@ class Label(Control):
         for index, line in enumerate(self._lines):
             self._win.move(index, 0)
             try:
-                self._win.addnstr(line, self._size[1], self._bold | self._italic | self._underline)
+                self._win.addnstr(line.ljust(self._size[1], " ") if self.fill else line, self._size[1], self._bold | self._italic | self._underline)
             except curses.error:
                 pass
 

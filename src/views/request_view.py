@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 import typing
 
 import colors
-from controls import Button, OptionBox, Label, LineEdit, Panel
+from controls import Button, OptionBox, Label, LineEdit, TitledPanel
 from controls.layout import LineFlexData, LineFlexLayout
 from entities.request import Method
 
@@ -12,15 +12,26 @@ if typing.TYPE_CHECKING:
     from ..app import App
 
 
-class RequestView(Panel):
+class RequestView(TitledPanel):
     __app: App
 
     __method: OptionBox
     __url: LineEdit
     __send: Button
 
+    __dirty: bool
+    __request_name: str
+
     def __init__(self, abs_pos: tuple[int, int], size: tuple[int, int], parent: App):
-        super().__init__(abs_pos=abs_pos, size=size)
+        super().__init__(title="", abs_pos=abs_pos, size=size)
+
+        self.__dirty = False
+        self.__request_name = ""
+
+        self.foreground = colors.get_color("foreground")
+        self.background = colors.get_color("background")
+
+        self.padding = 1, 2
 
         self.__app = parent
         self.__method_lbl = Label("Method: ", parent=self._win)
@@ -52,7 +63,8 @@ class RequestView(Panel):
         self.__layout.add_child(self.__method, LineFlexData(line=0, order=1, min_width=8))
         self.__layout.add_child(self.__url_lbl, LineFlexData(line=0, order=2, min_width=5))
         self.__layout.add_child(self.__url, LineFlexData(line=0, order=3, stretch=True, min_width=1))
-        self.__layout.add_child(self.__send, LineFlexData(line=2, order=0, stretch=False, min_width=6))
+        self.__layout.add_spacer(LineFlexData(line=2, order=0, stretch=True))
+        self.__layout.add_child(self.__send, LineFlexData(line=2, order=1, stretch=False, min_width=10))
         self.__layout.set_line_weight(1, 1)
         self.__layout.set_line_min_height(2, 3)
         self.set_layout(self.__layout)
@@ -83,10 +95,30 @@ class RequestView(Panel):
             valid = False
 
         self.__url.background = curses.COLOR_RED if not valid else colors.get_color("contrast")
-        if valid and self.__app.context.active_request and propagate:
-            self.__app.context.active_request.url = url
+        if self.__app.context.active_request and propagate:
+            request = self.__app.context.active_request
+            request.url = url
+            self.__app.context.dirty.add(request.id)
+            self.set_dirty(True)
 
     def update_method(self, method: str):
         if self.__app.context.active_request:
-            self.__app.context.active_request.method = Method(method)
+            request = self.__app.context.active_request
+            request.method = Method(method)
+            self.__app.context.dirty.add(request.id)
+            self.set_dirty(True)
+
+    def set_request_name(self, request_name: str, dirty: bool | None = None):
+        self.__request_name = request_name
+        if dirty is not None:
+            self.set_dirty(dirty)
+        else:
+            self.__update_title()
+
+    def set_dirty(self, dirty: bool):
+        self.__dirty = dirty
+        self.__update_title()
+
+    def __update_title(self):
+        self.set_title(f"{'* ' if self.__dirty else ''}{self.__request_name}")
 

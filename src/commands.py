@@ -151,10 +151,10 @@ def command_rename_collection(args: dict[str, str], app: App):
 
 @register("sr", [])
 def command_save_request(_: dict[str, str], app: App):
-    if app.context.active_request and app.context.active_collection:
-        app.store.save_request(app.store.get_collection_root(app.context.active_collection), app.context.active_request)
-    else:
-        raise CommandError("No active collection or request.")
+    try:
+        app.save_active_request()
+    except ValueError as err:
+        raise CommandError(str(err))
 
 
 @register("q", [])

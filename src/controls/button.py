@@ -43,16 +43,18 @@ class Button(Control):
         start = 0 if small else 1
         self._win.move(start, start)
         focus_attr = focus_color_pair if self.focused else 0
+        text_width = self._width if small else self._width - 2
+        prepad = " " * (max(0, text_width - len(text)) // 2)
         try:
-            self._win.addnstr(text, self._width if small else self._width - 2, focus_attr | curses.A_UNDERLINE if small else 0)
+            self._win.addnstr(prepad + text, self._width if small else self._width - 2, focus_attr | curses.A_UNDERLINE if small else 0)
         except curses.error:
             pass
 
         if self._shortcut is not None:
             index = self._text.index(self._shortcut)
             if index >= 0:
-                self._win.move(start, start + index)
-                attr = (curses.A_UNDERLINE if small else 0) | focus_attr
+                self._win.move(start, start + index + len(prepad))
+                attr = (curses.A_UNDERLINE if small else 0) | (focus_attr if small else 0)
                 try:
                     self._win.addch(self._shortcut, attr)
                 except curses.error:

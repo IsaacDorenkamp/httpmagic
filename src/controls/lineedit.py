@@ -32,7 +32,7 @@ class LineEdit(Control):
     def set_text(self, text: str):
         self._text = text
         self._cursor = len(self._text)
-        self._offset = max(self._cursor, self._width) - self._width
+        self.__pull_offset()
         self.repaint()
 
     def get_text(self) -> str:

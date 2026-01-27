@@ -17,8 +17,9 @@ class AppContext(Entity):
     active_collection: Collection | None
     active_request: Request | None
     responses: dict[uuid.UUID, Response]
+    dirty: set[uuid.UUID]
 
     @staticmethod
     def create():
-        return AppContext(settings=Settings(), collections=[], active_collection=None, active_request=None, responses={})
+        return AppContext(settings=Settings(), collections=[], active_collection=None, active_request=None, responses={}, dirty=set())
 

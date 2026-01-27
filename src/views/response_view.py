@@ -44,8 +44,8 @@ class ResponseView(Panel):
         super().render()
 
         if self.__loading:
-            self._win.move(1, 1)
-            #self._win.addnstr("Loading...", self.pane_size[1] - 2)
+            self._win.move(1 + self.padding[0], 1 + self.padding[1])
+            self._win.addnstr("Loading...", self.content_size[1])
             return
 
         if self.__response is None:
@@ -55,18 +55,15 @@ class ResponseView(Panel):
             data = self.__response.data.decode('utf-8')
         except:
             logging.exception("failed")
-            #self._win.addnstr("[binary data]", self.pane_size[1] - 2)
+            self._win.addnstr("[binary data]", self.content_size[1])
             return
 
         line_no = 1
-        """
-        for line in take_lines(data, self.pane_size[1], self.pane_size[0]):
+        for line in take_lines(data, self.content_size[1], self.content_size[0]):
             self._win.move(line_no, 1)
-            self._win.addnstr(line, self.pane_size[1])
+            self._win.addnstr(line, self.content_size[1])
             line_no += 1
-        """
             
-
     def set_loading(self, loading: bool):
         if self.__loading != loading:
             self.__loading = loading
