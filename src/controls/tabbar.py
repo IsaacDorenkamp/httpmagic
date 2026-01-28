@@ -29,6 +29,8 @@ class TabBar(Control):
 
     def on_unfocus(self):
         self.background = self.__orig_bg
+        if self.change is not None:
+            self.change(None if self.__selection == -1 else self.__tabs[self.__selection])
         self.repaint()
 
     def render(self):
@@ -36,11 +38,9 @@ class TabBar(Control):
         self._win.move(row, 0)
         remaining_rows = self._size[0]
         remaining_columns = self._size[1]
-        import logging
         for index, tab in enumerate(self.__tabs):
             padded = f" {tab} "
             if len(padded) < remaining_columns:
-                logging.debug(f"is selected? {self.__selection == index}")
                 self._win.addstr(padded, ((curses.A_BOLD | curses.A_ITALIC) if self.__selection == index else 0))
                 remaining_columns -= len(padded)
             else:
@@ -54,8 +54,6 @@ class TabBar(Control):
             if remaining_columns > 0:
                 self._win.addch('\u2502')
                 remaining_columns -= 1
-
-        logging.debug("")
 
     def handle_input(self, ch: int):
         repaint = False

@@ -16,4 +16,3 @@ class BinaryResponseView(Control):
     def handle_input(self, ch: int):
         pass
 
-

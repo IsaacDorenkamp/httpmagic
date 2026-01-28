@@ -42,11 +42,14 @@ class TitledPanel(Panel):
         self.__draw_title(True)
 
     def __draw_title(self, refresh: bool = False):
-        self._win.move(0, 0)
-        self._win.addch('\u250C')
-        self._win.addstr('\u2500' * (self._size[1] - 2))
-        self._win.addch('\u2510')
-        self._win.move(0, 1)
+        try:
+            self._win.move(0, 0)
+            self._win.addch('\u250C')
+            self._win.addstr('\u2500' * (self._size[1] - 2))
+            self._win.addch('\u2510')
+            self._win.move(0, 1)
+        except:
+            return
         title = util.ellipsize(self.__title, self._size[1] - 4)
         pair = colors.color_pair(self.background, self.foreground)
         self._win.addch(' ', pair)

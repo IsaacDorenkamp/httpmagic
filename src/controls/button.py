@@ -41,7 +41,12 @@ class Button(Control):
         text = self._text[:self._width]
 
         start = 0 if small else 1
-        self._win.move(start, start)
+        try:
+            self._win.move(start, start)
+        except curses.error:
+            # if, for some reason, our manual checks fail and (start, start) is not a
+            # valid position
+            return
         focus_attr = focus_color_pair if self.focused else 0
         text_width = self._width if small else self._width - 2
         prepad = " " * (max(0, text_width - len(text)) // 2)

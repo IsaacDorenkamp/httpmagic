@@ -11,15 +11,23 @@ class SwitchPane(Container):
     def set_active(self, control: Control | None):
         if control is not None and control not in self._children:
             raise ValueError("control '%s' not in this pane!" % str(control))
+
+        if self._active == control:
+            return
+
+        if self._active:
+            self._active.set_visible(False)
         
         self._active = control
         if self._active:
+            self._active.set_visible(True)
             self._active.set_size(self.size)
 
         self.repaint()
 
     def add(self, control: Control):
         super().add(control)
+        control.set_visible(False)
         control.set_size(self.size)
 
     def set_size(self, size: tuple[int, int]) -> bool:

@@ -143,7 +143,7 @@ class LineFlexLayout(Layout[LineFlexData]):
         for local_region, control in self.__positions:
             control_abs_region = shift_region(local_region, (abs_region.top, abs_region.left))
             with control.rearrange():
-                control.set_absolute_pos((control_abs_region.top, control_abs_region.left))
+                control.set_absolute_pos((control_abs_region.top, control_abs_region.left), repaint=False)
                 control.set_size((control_abs_region.bottom - control_abs_region.top + 1, control_abs_region.right - control_abs_region.left + 1))
 
     def __recompute(self, abs_region: ScreenRegion):

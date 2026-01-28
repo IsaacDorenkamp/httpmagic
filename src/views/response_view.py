@@ -58,6 +58,7 @@ class ResponseView(Panel):
         self.add(self.__view)
         self.add(self.__tabs)
         self.__view.add(self.__text_view)
+        self.__view.add(self.__binary_view)
 
         self.__tabs.set_relative_pos((0, 1))
         self.__tabs.set_size((1, self._size[1] - 2))
@@ -84,22 +85,27 @@ class ResponseView(Panel):
         if self.__loading != loading:
             self.__loading = loading
             if loading:
-                self.__view.set_active(None)
+                self.__view.set_content_visible(False)
             else:
-                self.__view.set_active(self.__text_view)
+                self.__view.set_content_visible(True)
             self.repaint()
 
     def set_response(self, response: Response | None, reset_loading: bool = True):
         if self.__response == response:
             return
 
-        self.__loading = False if reset_loading else self.__loading
         self.__response = response
         if response is not None:
             self.__text_view.set_content(response.data)
+            self.__binary_view.set_content(response.data)
         else:
             self.__text_view.set_content(b"")
-        self.repaint()
+            self.__binary_view.set_content(b"")
+
+        if reset_loading:
+            self.set_loading(False)
+        else:
+            self.repaint()
 
     def __switch_tab(self, tab: str | None):
         active = None

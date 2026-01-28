@@ -167,8 +167,8 @@ class Control(metaclass=ABCMeta):
             self._win.resize(self._size[0], self._size[1])
         return self._size == size
 
-    def set_absolute_pos(self, abs_pos: tuple[int, int]):
-        self._set_absolute_pos(abs_pos)
+    def set_absolute_pos(self, abs_pos: tuple[int, int], repaint: bool = True):
+        self._set_absolute_pos(abs_pos, repaint=repaint)
 
     def set_relative_pos(self, rel_pos: tuple[int, int]):
         if self._parent is None:
@@ -182,17 +182,18 @@ class Control(metaclass=ABCMeta):
     def _erase(self):
         self._win.erase()
 
-    def _set_absolute_pos(self, abs_pos: tuple[int, int], _update_rel: bool = True):
+    def _set_absolute_pos(self, abs_pos: tuple[int, int], _update_rel: bool = True, repaint: bool = True):
         self._erase()
         if self._parent is not None and _update_rel:
             parent_abs_pos = self._parent.absolute_pos
             self._rel_pos = (
-                parent_abs_pos[0] - abs_pos[0],
-                parent_abs_pos[1] - abs_pos[1]
+                abs_pos[0] - parent_abs_pos[0],
+                abs_pos[1] - parent_abs_pos[1],
             )
         self._abs_pos = abs_pos
         self._win.mvwin(*abs_pos)
-        self.repaint()
+        if repaint:
+            self.repaint()
 
     @property
     def size(self) -> tuple[int, int]:
@@ -310,7 +311,8 @@ class Container(Control):
     def render(self):
         if self.__content_visible:
             for child in self._children:
-                child.repaint()
+                if child.visible:
+                    child.repaint()
 
     def set_size(self, size: tuple[int, int]) -> bool:
         result = super().set_size(size)
@@ -339,17 +341,17 @@ class Container(Control):
         )
         new_size = (new_region[2] - new_region[0]) + 1, (new_region[3] - new_region[1]) + 1
         new_pos  = new_region[0], new_region[1]
+        # FIXME: rearranging within a higher-level rearrange() block causes children to try to expand before their parent has had the chance to do so.
         with child.rearrange():
             child.set_size(new_size)
-            child.set_absolute_pos(new_pos)
+            child.set_absolute_pos(new_pos, repaint=False)
 
-    def set_absolute_pos(self, abs_pos: tuple[int, int]):
+    def set_absolute_pos(self, abs_pos: tuple[int, int], repaint: bool = True):
         # adjust children based on relative pos
+        super().set_absolute_pos(abs_pos, repaint=repaint)
         for child in self._children:
             rel_pos = child.relative_pos
             child._set_absolute_pos((abs_pos[0] + rel_pos[0], abs_pos[1] + rel_pos[1]), _update_rel=False)
-        super().set_absolute_pos(abs_pos)
-        self._relayout()
 
     @contextlib.contextmanager
     def rearrange(self):

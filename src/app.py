@@ -84,7 +84,6 @@ class App:
             if collection.requests:
                 self.set_active_request(collection.requests[0])
 
-        #self.relayout()
         self.repaint()
 
     def relayout(self):
@@ -101,6 +100,7 @@ class App:
             self.__request_pane.set_absolute_pos((0, collection_width))
             self.__request_pane.set_size((bounds[0] - 2, pane_width))
 
+        """
         with self.__response_pane.rearrange():
             self.__response_pane.set_absolute_pos((0, collection_width + pane_width))
             self.__response_pane.set_size((bounds[0] - 2, pane_width))
@@ -112,6 +112,7 @@ class App:
         with self.__status.rearrange():
             self.__status.set_size((1, bounds[1] - 1))
             self.__status.set_absolute_pos((bounds[0] - 2, 0))
+        """
 
         self.repaint()
 
