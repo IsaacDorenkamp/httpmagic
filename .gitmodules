@@ -1,0 +1,3 @@
+[submodule "framed"]
+	path = framed
+	url = https://github.com/IsaacDorenkamp/framed.git
