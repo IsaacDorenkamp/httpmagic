@@ -1,18 +1,43 @@
 from __future__ import annotations
-import curses
 from urllib.parse import urlparse
 import typing
 
-import colors
-from controls import Button, OptionBox, Label, LineEdit, TitledPanel
-from controls.layout import LineFlexData, LineFlexLayout
+import framed
+from framed.widgets import *
 from entities.request import Method
 
 if typing.TYPE_CHECKING:
     from ..app import App
 
 
-class RequestView(TitledPanel):
+class RequestView(framed.Panel):
+    method_label: Label
+    method: OptionBox
+    url_label: Label
+    url: Editor
+
+    def __init__(self, region: framed.rect2, owner: framed.Manager):
+        super().__init__(region, owner)
+        self.method_label = Label("Method:")
+        self.method = OptionBox()
+        self.url_label = Label("URL:")
+        self.url = Editor(model_cls=LineTextModel)
+
+        self.add(self.method_label)
+        self.add(self.method)
+        self.add(self.url_label)
+        self.add(self.url)
+
+    def arrange(self):
+        flex = self.flex()
+        flex.add(self.method_label, row=0, weight=1)
+        flex.add(self.method, row=0, weight=1)
+        flex.add(self.url_label, row=0, weight=1)
+        flex.add(self.url, row=0, weight=3)
+
+
+"""
+class _RequestView(TitledPanel):
     __app: App
 
     __method: OptionBox
@@ -48,12 +73,11 @@ class RequestView(TitledPanel):
 
         self.__method.set_option("GET")
 
-        with self.no_repaint():
-            self.add(self.__url_lbl)
-            self.add(self.__url)
-            self.add(self.__send)
-            self.add(self.__method_lbl)
-            self.add(self.__method)
+        self.add(self.__url_lbl)
+        self.add(self.__url)
+        self.add(self.__send)
+        self.add(self.__method_lbl)
+        self.add(self.__method)
 
         self.__layout = LineFlexLayout()
         self.__layout.add_child(self.__method_lbl, LineFlexData(line=0, order=0, min_width=8))
@@ -118,4 +142,4 @@ class RequestView(TitledPanel):
 
     def __update_title(self):
         self.set_title(f"{'* ' if self.__dirty else ''}{self.__request_name}")
-
+"""

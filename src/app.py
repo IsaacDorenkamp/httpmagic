@@ -1,29 +1,26 @@
-import curses
-import enum
-import uuid
-
-import httpx
-
-import colors
-import commands
-import controls
-import executor
-from entities.context import AppContext
-from entities.request import Collection, Request
-from entities.response import Response
-import util
-
-from persist import PersistStore
-from views.request_view import RequestView
-from views.response_view import ResponseView
-from views.collection_view import CollectionPane
+import framed
+from views.collection_view import CollectionView
 
 
-class Mode(enum.Enum):
-    control = 0
-    command = 1
+class App(framed.App):
+    collection_pane: CollectionView
+
+    def __init__(self, stdscr):
+        super().__init__(stdscr)
+        self.__configure()
+
+    def __configure(self):
+        manager = self.multiplex()
+        app_split, command_split = manager.split(2, direction=framed.Direction.vertical)
+        collection_split, request_split, response_split = manager.split(3, path=app_split, direction=framed.Direction.horizontal)
+
+        manager.set_proportions((), (1, 0))
+        manager.set_proportions(app_split, (1, 2, 2))
+
+        self.collection_pane = self.new_panel(CollectionView, split_path=collection_split)
 
 
+"""
 class App:
     __stdscr: curses.window
 
@@ -97,13 +94,12 @@ class App:
 
         pane_width = (bounds[1] - collection_width) // 2
         with self.__request_pane.rearrange():
-            self.__request_pane.set_absolute_pos((0, collection_width))
+            self.__request_pane.set_absolute_pos((0, collection_width), repaint=False)
             self.__request_pane.set_size((bounds[0] - 2, pane_width))
 
-        """
         with self.__response_pane.rearrange():
-            self.__response_pane.set_absolute_pos((0, collection_width + pane_width))
-            self.__response_pane.set_size((bounds[0] - 2, pane_width))
+            self.__response_pane.set_absolute_pos((0, collection_width + pane_width), repaint=False)
+            self.__response_pane.set_size((bounds[0] - 2, 20))
 
         with self.__command.rearrange():
             self.__command.set_size((1, bounds[1] - 1))
@@ -112,7 +108,6 @@ class App:
         with self.__status.rearrange():
             self.__status.set_size((1, bounds[1] - 1))
             self.__status.set_absolute_pos((bounds[0] - 2, 0))
-        """
 
         self.repaint()
 
@@ -219,25 +214,25 @@ class App:
 
     # convenience status functions
     def status_error(self, message: str):
-        with self.__status.no_repaint():
-            self.__status.set_text(message)
-            self.__status.bold = True
-            self.__status.italic = True
-            self.__status.foreground = colors.get_color("error")
+        self.__status.set_text(message)
+        self.__status.bold = True
+        self.__status.italic = True
+        self.__status.foreground = colors.get_color("error")
+        self.__status.repaint()
 
     def status_info(self, message: str):
-        with self.__status.no_repaint():
-            self.__status.set_text(message)
-            self.__status.bold = False
-            self.__status.italic = False
-            self.__status.foreground = colors.get_color("foreground")
+        self.__status.set_text(message)
+        self.__status.bold = False
+        self.__status.italic = False
+        self.__status.foreground = colors.get_color("foreground")
+        self.__status.repaint()
 
     def status_clear(self):
-        with self.__status.no_repaint():
-            self.__status.bold = False
-            self.__status.italic = False
-            self.__status.underline = False
-            self.__status.set_text("")
+        self.__status.bold = False
+        self.__status.italic = False
+        self.__status.underline = False
+        self.__status.set_text("")
+        self.__status.repaint()
 
     # public API
     def set_response(self, request_key: uuid.UUID, response: Response):
@@ -368,4 +363,5 @@ class App:
     @property
     def store(self) -> PersistStore:
         return self.__store
+"""
 

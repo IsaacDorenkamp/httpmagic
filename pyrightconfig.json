@@ -1,7 +1,10 @@
 {
 	"executionEnvironments": [
 		{
-			"root": "src"
+			"root": "src",
+            "extraPaths": [
+                "framed"
+            ]
 		}
 	]
 }

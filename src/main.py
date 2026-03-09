@@ -3,14 +3,13 @@ import curses
 import logging
 import os
 import pathlib
-import signal
 import traceback
 
 import app
-import colors
-from entities.settings import TerminalColors
 import persist
 import util
+
+import framed.palette
 
 
 def load_options():
@@ -25,43 +24,24 @@ def begin_debug_mode():
     logging.debug("DEBUG MODE STARTED")
 
 
-def disable_ctrl_c():
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
-
-
-def configure_colors(termcolors: TerminalColors):
-    colors.create_color("foreground", termcolors.foreground)
-    colors.create_color("background", termcolors.background)
-    colors.create_color("contrast", termcolors.contrast)
-    colors.create_color("error", termcolors.error)
-
-
-def main(stdscr: curses.window) -> int:
+def main(stdscr: curses.window):
     options = load_options()
     if options.debug:
         begin_debug_mode()
 
-    curses.use_default_colors()
-    disable_ctrl_c()
+    framed.palette.setup()
 
     store = persist.PersistStore(options.root)
     store.ensure()
     context, exc_group = store.load()
     if exc_group is not None:
         util.report_exception(exc_group)
-    if colors.initialize():
-        configure_colors(context.settings.colors)
-    else:
-        colors.create_color("foreground", "white")
-        colors.create_color("background", "black")
-        colors.create_color("contrast", "magenta")
-        colors.create_color("error", "red")
 
     curses.raw()
     curses.set_escdelay(25)
 
-    instance = app.App(stdscr, context, store)
-    return instance.run()
+    instance = app.App(stdscr)
+    instance.run()
 
 
 if __name__ == '__main__':

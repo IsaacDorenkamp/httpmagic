@@ -1,19 +1,19 @@
 from __future__ import annotations
-import io
 import typing
 
-import colors
-from controls import Panel, SwitchPane, TabBar
-from controls.layout import LineFlexData, LineFlexLayout
+import framed
 from entities.response import Response
 
-from .response.text import TextResponseView
-from .response.binary import BinaryResponseView
 
-if typing.TYPE_CHECKING:
-    from ..app import App
+class ResponseView(framed.Panel):
+    def __init__(self, region: framed.rect2, owner: framed.Manager):
+        super().__init__(region, owner)
+
+    def arrange(self):
+        pass
 
 
+"""
 def take_lines(text: str, max_line_length: int, max_lines: int):
     line = io.StringIO()
     line_length = 0
@@ -88,7 +88,7 @@ class ResponseView(Panel):
                 self.__view.set_content_visible(False)
             else:
                 self.__view.set_content_visible(True)
-            self.repaint()
+            self.invalidate()
 
     def set_response(self, response: Response | None, reset_loading: bool = True):
         if self.__response == response:
@@ -105,7 +105,7 @@ class ResponseView(Panel):
         if reset_loading:
             self.set_loading(False)
         else:
-            self.repaint()
+            self.invalidate()
 
     def __switch_tab(self, tab: str | None):
         active = None
@@ -119,4 +119,4 @@ class ResponseView(Panel):
     @property
     def tabs(self) -> TabBar:
         return self.__tabs
-
+"""

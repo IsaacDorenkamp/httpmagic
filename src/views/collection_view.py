@@ -1,44 +1,41 @@
 import typing
 
-from controls import Label, ListBox, Panel
-from controls.layout import LineFlexData, LineFlexLayout
+import framed
+from framed.widgets import *
 
+class CollectionView(framed.Panel):
+    collection: Label
+    requests: ListBox
 
-class CollectionPane(Panel):
-    __name: Label
-    __requests: ListBox
+    def __init__(self, region: framed.rect2, owner: framed.Manager):
+        super().__init__(region, owner)
+        self.collection = Label("collection")
+        self.collection.bold = True
+        self.collection.italic = True
+        self.collection.underline = True
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__name = Label(parent=self._win)
-        self.__name.bold = True
-        self.__name.italic = True
-        self.__name.underline = True
-        self.__name.fill = True
+        self.requests = ListBox()
 
-        self.__requests = ListBox(parent=self._win)
+        self.add(self.collection)
+        self.add(self.requests)
 
-        self.add(self.__name)
-        self.add(self.__requests)
-
-        layout = LineFlexLayout()
-        layout.add_child(self.__name, LineFlexData(line=0, order=0, stretch=True))
-        layout.add_child(self.__requests, LineFlexData(line=1, order=0, stretch=True))
-        layout.set_line_weight(1, 1)
-        self.set_layout(layout)
+    def arrange(self):
+        flex = self.flex()
+        flex.set_row_weight(0, 0)
+        flex.set_row_weight(1, 1)
+        flex.add(self.collection, row=0, weight=1)
+        flex.add(self.requests, row=1, weight=1)
 
     def set_name(self, name: str):
-        self.__name.set_text(name)
+        self.collection.set_text(name)
 
     def set_requests(self, requests: typing.Iterable[str]):
-        self.__requests.clear()
+        self.requests.clear()
         for request in sorted(requests):
-            self.__requests.add_item(request)
+            self.requests.add_item(request, request)
 
     def set_selected_request(self, request: str):
-        self.__requests.set_selection(self.__requests.find(request))
-
-    @property
-    def requests(self) -> ListBox:
-        return self.__requests
+        index = self.requests.find_item(request)
+        if index >= 0:
+            self.requests.set_selection(index)
 
