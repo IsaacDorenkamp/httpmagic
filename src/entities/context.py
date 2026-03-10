@@ -6,20 +6,14 @@ from .response import *
 from .settings import Settings
 
 
-class AppContext(Entity):
+class AppContextEntity(Entity):
     # config stuff
     settings: Settings
 
     # workspace
     collections: list[Collection]
 
-    # app state
-    active_collection: Collection | None
-    active_request: Request | None
-    responses: dict[uuid.UUID, Response]
-    dirty: set[uuid.UUID]
-
     @staticmethod
     def create():
-        return AppContext(settings=Settings(), collections=[], active_collection=None, active_request=None, responses={}, dirty=set())
+        return AppContextEntity(settings=Settings(), collections=[])
 

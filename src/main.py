@@ -40,7 +40,7 @@ def main(stdscr: curses.window):
     curses.raw()
     curses.set_escdelay(25)
 
-    instance = app.App(stdscr)
+    instance = app.App(stdscr, context, store)
     instance.run()
 
 

@@ -1,13 +1,81 @@
+import enum
+import uuid
+
 import framed
+import framed.context
+import framed.palette
+from framed import keys
+
+from entities.context import AppContextEntity
+from entities.settings import Settings
+from entities.request import Collection, Method, Request
+from persist import PersistStore
 from views.collection_view import CollectionView
+from views.request_view import RequestView
 
 
-class App(framed.App):
-    collection_pane: CollectionView
+class AppAction(enum.Enum):
+    collections_focus = "collections_focus"
 
-    def __init__(self, stdscr):
-        super().__init__(stdscr)
+    request_method = "request_method"
+    request_url = "request_url"
+
+
+class AppContext(framed.context.Context):
+    collections: dict[str, Collection]
+    requests: dict[uuid.UUID, Request]
+    active_collection: Collection | None
+    active_request: Request | None
+
+    def __init__(self):
+        super().__init__()
+        self.create_var("collections", {}, dict)
+        self.create_var("requests", {}, dict)
+        self.create_var("active_collection", None, Collection)
+        self.create_var("active_request", None, Request)
+
+    def conform(self, entity: AppContextEntity):
+        collections = {}
+        requests = {}
+        for collection in entity.collections:
+            collections[collection.name] = collection
+            for request in collection.requests:
+                requests[request.id] = request
+        self.collections = collections
+        self.requests = requests
+
+    def entity(self) -> AppContextEntity:
+        return AppContextEntity(
+            settings=Settings(),
+            collections=list(self.collections.values()),
+        )
+
+
+class App(framed.App[AppContext]):
+    _DEFAULT_BINDINGS: dict[int, AppAction] = {
+        keys.C: AppAction.collections_focus,
+        keys.M: AppAction.request_method,
+        keys.U: AppAction.request_url,
+    }
+
+    collection_view: CollectionView
+    request_view: RequestView
+    store: PersistStore
+
+    __bindings: dict[int, AppAction]
+
+    def __init__(self, stdscr, context: AppContextEntity, store: PersistStore):
+        super().__init__(stdscr, context_cls=AppContext)
+        self.store = store
+        self.context.conform(context)
+        self.__bindings = App._DEFAULT_BINDINGS.copy()
+        self.set_control_handler(self.on_input)
+        self.__make_colors()
         self.__configure()
+
+    def __make_colors(self):
+        for method in Method:
+            framed.palette.alias(method.color, method.lower())
 
     def __configure(self):
         manager = self.multiplex()
@@ -17,7 +85,25 @@ class App(framed.App):
         manager.set_proportions((), (1, 0))
         manager.set_proportions(app_split, (1, 2, 2))
 
-        self.collection_pane = self.new_panel(CollectionView, split_path=collection_split)
+        self.collection_view = self.new_panel(CollectionView, split_path=collection_split)
+        if self.context.collections:
+            ordered_names = sorted(self.context.collections.keys())
+            self.context.active_collection = self.context.collections[ordered_names[0]]
+            self.collection_view.set_collection(self.context.active_collection)
+
+        self.request_view = self.new_panel(RequestView, split_path=request_split)
+
+    def on_input(self, ch: int):
+        action = self.__bindings.get(ch)
+        if action is not None:
+            match action:
+                case AppAction.collections_focus:
+                    self.focus(self.collection_view.requests)
+                case AppAction.request_method:
+                    self.focus(self.request_view.method)
+                case AppAction.request_url:
+                    self.focus(self.request_view.url)
+            return framed.FocusCapture.capture
 
 
 """

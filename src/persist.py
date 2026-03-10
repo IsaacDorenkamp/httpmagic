@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import uuid
 
-from entities.context import AppContext
+from entities.context import AppContextEntity
 from entities.entity import EntityEncoder
 from entities.request import Collection, Request
 
@@ -42,12 +42,11 @@ class PersistStore:
         with open(collection_root.joinpath(f"{request.id}.json"), "w") as fp:
             json.dump(request, fp, cls=EntityEncoder, exclude={"Request.id"})
 
-    def load(self) -> tuple[AppContext, ExceptionGroup | None]:
+    def load(self) -> tuple[AppContextEntity, ExceptionGroup | None]:
         if not self.__collections.is_dir():
-            return AppContext.create(), None
+            return AppContextEntity.create(), None
 
-        context = AppContext.create()
-
+        context = AppContextEntity.create()
         errors = []
         for child in self.__collections.iterdir():
             if child.name.endswith(".json"):

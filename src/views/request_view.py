@@ -1,32 +1,49 @@
 from __future__ import annotations
 from urllib.parse import urlparse
-import typing
 
 import framed
+from framed.const import *
+import framed.event
+import framed.keys
 from framed.widgets import *
-from entities.request import Method
-
-if typing.TYPE_CHECKING:
-    from ..app import App
+from entities.request import Method, Request
+from persist import PersistStore
+from typedefs import SetRequest, MessageType
 
 
 class RequestView(framed.Panel):
     method_label: Label
-    method: OptionBox
+    method: OptionBox[Method]
     url_label: Label
     url: Editor
 
+    __request: Request | None
+
     def __init__(self, region: framed.rect2, owner: framed.Manager):
         super().__init__(region, owner)
-        self.method_label = Label("Method:")
+        self.__request = None
+        self.__configure()
+
+    def __configure(self):
+        self.method_label = Label("Method: ")
+        self.method_label.align = HAlign.RIGHT
         self.method = OptionBox()
-        self.url_label = Label("URL:")
+        for method in Method:
+            self.method.add_option(method, method)
+        self.method.default = Method.GET
+        self.method.listen(framed.event.ChangeEvent, self.on_method_change)
+        self.url_label = Label("URL: ")
+        self.url_label.align = HAlign.RIGHT
         self.url = Editor(model_cls=LineTextModel)
+        self.url.bind(framed.keys.ENTER, EditorAction.edit_finish)
+        self.url.listen(framed.event.ChangeEvent, self.on_url_change)
 
         self.add(self.method_label)
         self.add(self.method)
         self.add(self.url_label)
         self.add(self.url)
+
+        self.add_message_handler(MessageType.set_request, self.on_set_request)
 
     def arrange(self):
         flex = self.flex()
@@ -34,6 +51,34 @@ class RequestView(framed.Panel):
         flex.add(self.method, row=0, weight=1)
         flex.add(self.url_label, row=0, weight=1)
         flex.add(self.url, row=0, weight=3)
+
+    # --- Listeners ---
+    def on_method_change(self, event: framed.event.ChangeEvent[OptionBoxChange]):
+        self.method.foreground = event.value.label.lower()
+        if self.__request is not None:
+            if event.value.value:
+                self.__request.method = event.value.value
+
+    def on_url_change(self, event: framed.event.ChangeEvent[str]):
+        if self.__request is not None:
+            self.__request.url = event.value
+
+    def on_set_request(self, data: SetRequest):
+        # TODO: finish implementing
+        request_id = data["request"]
+        pass
+
+
+    # --- Controllers ---
+    def set_request(self, request: Request | None):
+        self.__request = request
+        if request:
+            self.method.set_option(request.method)
+            self.url.set_text(request.url)
+        else:
+            self.method.set_option(Method.GET)
+            self.url.set_text("")
+
 
 
 """

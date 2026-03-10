@@ -1,8 +1,6 @@
-import curses
 import enum
 import uuid
 
-import colors
 from .entity import Entity
 
 
@@ -16,22 +14,22 @@ class Method(enum.StrEnum):
     OPTIONS = "OPTIONS"
 
     @property
-    def color(self) -> int:
+    def color(self) -> str:
         match self:
             case Method.GET:
-                return curses.COLOR_GREEN
+                return "green"
             case Method.HEAD:
-                return curses.COLOR_MAGENTA
+                return "magenta"
             case Method.POST:
-                return curses.COLOR_YELLOW
+                return "yellow"
             case Method.PUT:
-                return curses.COLOR_BLUE
+                return "blue"
             case Method.DELETE:
-                return curses.COLOR_RED
+                return "red"
             case Method.PATCH:
-                return curses.COLOR_CYAN
+                return "cyan"
             case Method.OPTIONS:
-                return colors.COLOR_ORANGE
+                return "white"
 
 
 class Request(Entity):
