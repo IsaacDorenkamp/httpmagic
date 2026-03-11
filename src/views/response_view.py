@@ -6,8 +6,8 @@ from entities.response import Response
 
 
 class ResponseView(framed.Panel):
-    def __init__(self, region: framed.rect2, owner: framed.Manager):
-        super().__init__(region, owner)
+    def __init__(self, region: framed.rect2, owner: framed.Manager, root: framed.App):
+        super().__init__(region, owner, root)
 
     def arrange(self):
         pass

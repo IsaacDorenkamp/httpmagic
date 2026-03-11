@@ -1,7 +1,9 @@
 from __future__ import annotations
 from urllib.parse import urlparse
+import uuid
 
 import framed
+import framed.context
 from framed.const import *
 import framed.event
 import framed.keys
@@ -17,12 +19,20 @@ class RequestView(framed.Panel):
     url_label: Label
     url: Editor
 
+    requests: framed.context.ContextRef[dict[uuid.UUID, Request]]
+    active_request: framed.context.ContextRef[uuid.UUID | None]
+
     __request: Request | None
 
-    def __init__(self, region: framed.rect2, owner: framed.Manager):
-        super().__init__(region, owner)
+    def __init__(self, region: framed.rect2, owner: framed.Manager, root: framed.App):
+        super().__init__(region, owner, root)
         self.__request = None
         self.__configure()
+
+        # context vars
+        self.requests = root.context.ref("requests")
+        self.active_request = root.context.ref("active_request")
+        self.active_request.handle(self.set_request)
 
     def __configure(self):
         self.method_label = Label("Method: ")
@@ -31,6 +41,7 @@ class RequestView(framed.Panel):
         for method in Method:
             self.method.add_option(method, method)
         self.method.default = Method.GET
+        self.method.foreground = Method.GET.color
         self.method.listen(framed.event.ChangeEvent, self.on_method_change)
         self.url_label = Label("URL: ")
         self.url_label.align = HAlign.RIGHT
@@ -42,8 +53,6 @@ class RequestView(framed.Panel):
         self.add(self.method)
         self.add(self.url_label)
         self.add(self.url)
-
-        self.add_message_handler(MessageType.set_request, self.on_set_request)
 
     def arrange(self):
         flex = self.flex()
@@ -63,22 +72,17 @@ class RequestView(framed.Panel):
         if self.__request is not None:
             self.__request.url = event.value
 
-    def on_set_request(self, data: SetRequest):
-        # TODO: finish implementing
-        request_id = data["request"]
-        pass
-
 
     # --- Controllers ---
-    def set_request(self, request: Request | None):
-        self.__request = request
-        if request:
-            self.method.set_option(request.method)
-            self.url.set_text(request.url)
-        else:
+    def set_request(self, request_id: uuid.UUID | None):
+        if request_id is None:
             self.method.set_option(Method.GET)
             self.url.set_text("")
-
+        else:
+            request = self.requests.get()[request_id]
+            self.__request = request
+            self.method.set_option(request.method, notify=True)
+            self.url.set_text(request.url)
 
 
 """

@@ -24,15 +24,15 @@ class AppAction(enum.Enum):
 class AppContext(framed.context.Context):
     collections: dict[str, Collection]
     requests: dict[uuid.UUID, Request]
-    active_collection: Collection | None
-    active_request: Request | None
+    active_collection: str | None
+    active_request: uuid.UUID | None
 
     def __init__(self):
         super().__init__()
         self.create_var("collections", {}, dict)
         self.create_var("requests", {}, dict)
-        self.create_var("active_collection", None, Collection)
-        self.create_var("active_request", None, Request)
+        self.create_var("active_collection", None, str)
+        self.create_var("active_request", None, uuid.UUID)
 
     def conform(self, entity: AppContextEntity):
         collections = {}
@@ -86,12 +86,17 @@ class App(framed.App[AppContext]):
         manager.set_proportions(app_split, (1, 2, 2))
 
         self.collection_view = self.new_panel(CollectionView, split_path=collection_split)
+        self.request_view = self.new_panel(RequestView, split_path=request_split)
+
         if self.context.collections:
             ordered_names = sorted(self.context.collections.keys())
-            self.context.active_collection = self.context.collections[ordered_names[0]]
-            self.collection_view.set_collection(self.context.active_collection)
-
-        self.request_view = self.new_panel(RequestView, split_path=request_split)
+            self.context.active_collection = ordered_names[0]
+            collection = self.context.collections[self.context.active_collection]
+            if collection.requests:
+                request = collection.requests[0]
+                import logging
+                logging.debug(f"request id: {request.id}; changed from {self.context.active_request}")
+                self.context.active_request = request.id
 
     def on_input(self, ch: int):
         action = self.__bindings.get(ch)

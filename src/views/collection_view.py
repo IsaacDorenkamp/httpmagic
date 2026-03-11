@@ -1,6 +1,7 @@
 import uuid
 
 import framed
+import framed.context
 from framed.const import *
 import framed.event
 from framed import keys
@@ -14,8 +15,11 @@ class CollectionView(framed.Panel):
     collection: Label
     requests: ListBox
 
-    def __init__(self, region: framed.rect2, owner: framed.Manager):
-        super().__init__(region, owner)
+    active_collection: framed.context.ContextRef[str | None]
+    active_request: framed.context.ContextRef[uuid.UUID | None]
+
+    def __init__(self, region: framed.rect2, owner: framed.Manager, root: framed.App):
+        super().__init__(region, owner, root)
         self.collection = Label("Collection")
         self.collection.bold = True
         self.collection.italic = True
@@ -29,6 +33,11 @@ class CollectionView(framed.Panel):
 
         self.add(self.collection)
         self.add(self.requests)
+
+        self.active_collection = root.context.ref("active_collection")
+        self.active_request = root.context.ref("active_request")
+        self.active_collection.handle(self.on_active_collection_changed)
+        self.active_request.handle(self.on_active_request_changed)
 
     def arrange(self):
         flex = self.flex()
@@ -53,5 +62,20 @@ class CollectionView(framed.Panel):
             req_id = event.value.value
         else:
             req_id = None
-        self.broadcast(MessageType.set_request, { "request": req_id })
+        self.root.context.active_request = req_id
+
+    def on_active_collection_changed(self, new_collection_id: str | None):
+        if new_collection_id is not None:
+            collection = self.root.context.collections.get(new_collection_id)
+            if collection:
+                self.set_collection(collection)
+        else:
+            self.requests.clear()
+
+    def on_active_request_changed(self, request_id: uuid.UUID | None):
+        if request_id is None:
+            self.requests.set_selection(-1)
+        else:
+            index = self.requests.find_item(request_id)
+            self.requests.set_selection(index)
 
