@@ -1,5 +1,5 @@
 from __future__ import annotations
-from urllib.parse import urlparse
+import functools
 import uuid
 
 import framed
@@ -7,10 +7,12 @@ import framed.context
 from framed.const import *
 import framed.event
 import framed.keys
+import framed.task
 from framed.widgets import *
+
+from client import MagicClient
 from entities.request import Method, Request
-from persist import PersistStore
-from typedefs import SetRequest, MessageType
+from entities.response import Response
 
 
 class RequestView(framed.Panel):
@@ -19,18 +21,24 @@ class RequestView(framed.Panel):
     url_label: Label
     url: Editor
 
+    send: Button
+
     requests: framed.context.ContextRef[dict[uuid.UUID, Request]]
+    responses: framed.context.ContextRef[dict[uuid.UUID, Response]]
     active_request: framed.context.ContextRef[uuid.UUID | None]
 
     __request: Request | None
+    __client: MagicClient
 
     def __init__(self, region: framed.rect2, owner: framed.Manager, root: framed.App):
         super().__init__(region, owner, root)
         self.__request = None
+        self.__client = MagicClient()
         self.__configure()
 
         # context vars
         self.requests = root.context.ref("requests")
+        self.responses = root.context.ref("responses")
         self.active_request = root.context.ref("active_request")
         self.active_request.handle(self.set_request)
 
@@ -48,18 +56,31 @@ class RequestView(framed.Panel):
         self.url = Editor(model_cls=LineTextModel)
         self.url.bind(framed.keys.ENTER, EditorAction.edit_finish)
         self.url.listen(framed.event.ChangeEvent, self.on_url_change)
+        self.send = Button("Send", bordered=False)
+        self.send.focus_foreground = "green"
+        self.send.bordered = True
+        self.send.listen(framed.event.ActionEvent, self.on_send)
 
         self.add(self.method_label)
         self.add(self.method)
         self.add(self.url_label)
         self.add(self.url)
+        self.add(self.send)
 
     def arrange(self):
         flex = self.flex()
-        flex.add(self.method_label, row=0, weight=1)
-        flex.add(self.method, row=0, weight=1)
-        flex.add(self.url_label, row=0, weight=1)
-        flex.add(self.url, row=0, weight=3)
+        flex.set_row_weight(0, 0)
+        flex.set_row_weight(1, 0)
+        flex.set_row_weight(2, 1)
+        flex.set_row_weight(3, 0)
+        flex.set_row_weight(4, 0)
+        flex.add(self.method_label, row=1, weight=1)
+        flex.add(self.method, row=1, weight=1)
+        flex.add(self.url_label, row=1, weight=1)
+        flex.add(self.url, row=1, weight=3)
+        flex.add_spacer(row=3, weight=1)
+        flex.add(self.send, row=3, weight=0)
+        flex.add_spacer(row=3, weight=0)
 
     # --- Listeners ---
     def on_method_change(self, event: framed.event.ChangeEvent[OptionBoxChange]):
@@ -72,6 +93,10 @@ class RequestView(framed.Panel):
         if self.__request is not None:
             self.__request.url = event.value
 
+    def on_send(self, event: framed.event.ActionEvent):
+        if self.__request is None:
+            return
+        self.root.task(self.send_request, (self.__request,))
 
     # --- Controllers ---
     def set_request(self, request_id: uuid.UUID | None):
@@ -83,6 +108,23 @@ class RequestView(framed.Panel):
             self.__request = request
             self.method.set_option(request.method, notify=True)
             self.url.set_text(request.url)
+
+    async def send_request(self, request: Request):
+        import logging
+        logging.debug("before!")
+        result = await self.__client.send(request)
+        response = Response(
+            status=result.status_code,
+            headers=result.headers,
+            data = result.content,
+        )
+        logging.debug("here!")
+        return framed.task.TaskResult(data=response, process=lambda response: self.__on_response(request.id, response))
+
+    def __on_response(self, request_id: uuid.UUID, response: Response):
+        import logging
+        logging.debug("Got response!")
+        self.responses.set(self.responses.get() | {request_id: response})
 
 
 """

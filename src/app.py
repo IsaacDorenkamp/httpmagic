@@ -1,4 +1,6 @@
 import enum
+import logging
+import traceback
 import uuid
 
 import framed
@@ -9,6 +11,7 @@ from framed import keys
 from entities.context import AppContextEntity
 from entities.settings import Settings
 from entities.request import Collection, Method, Request
+from entities.response import Response
 from persist import PersistStore
 from views.collection_view import CollectionView
 from views.request_view import RequestView
@@ -19,11 +22,13 @@ class AppAction(enum.Enum):
 
     request_method = "request_method"
     request_url = "request_url"
+    request_send = "request_send"
 
 
 class AppContext(framed.context.Context):
     collections: dict[str, Collection]
     requests: dict[uuid.UUID, Request]
+    responses: dict[uuid.UUID, Response]
     active_collection: str | None
     active_request: uuid.UUID | None
 
@@ -31,6 +36,7 @@ class AppContext(framed.context.Context):
         super().__init__()
         self.create_var("collections", {}, dict)
         self.create_var("requests", {}, dict)
+        self.create_var("responses", {}, dict)
         self.create_var("active_collection", None, str)
         self.create_var("active_request", None, uuid.UUID)
 
@@ -56,6 +62,7 @@ class App(framed.App[AppContext]):
         keys.C: AppAction.collections_focus,
         keys.M: AppAction.request_method,
         keys.U: AppAction.request_url,
+        keys.S: AppAction.request_send,
     }
 
     collection_view: CollectionView
@@ -70,6 +77,7 @@ class App(framed.App[AppContext]):
         self.context.conform(context)
         self.__bindings = App._DEFAULT_BINDINGS.copy()
         self.set_control_handler(self.on_input)
+        self.set_task_callback(self.task_callback)
         self.__make_colors()
         self.__configure()
 
@@ -94,8 +102,6 @@ class App(framed.App[AppContext]):
             collection = self.context.collections[self.context.active_collection]
             if collection.requests:
                 request = collection.requests[0]
-                import logging
-                logging.debug(f"request id: {request.id}; changed from {self.context.active_request}")
                 self.context.active_request = request.id
 
     def on_input(self, ch: int):
@@ -108,8 +114,15 @@ class App(framed.App[AppContext]):
                     self.focus(self.request_view.method)
                 case AppAction.request_url:
                     self.focus(self.request_view.url)
+                case AppAction.request_send:
+                    self.focus(self.request_view.send)
             return framed.FocusCapture.capture
 
+    def task_callback(self, task_id: int, status: framed.task.TaskStatus, info: typing.Any):
+        if isinstance(info, Exception):
+            formatted = "".join(traceback.format_exception(info)).split("\n")
+            for line in formatted:
+                logging.error(line)
 
 """
 class App:
