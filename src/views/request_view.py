@@ -110,20 +110,17 @@ class RequestView(framed.Panel):
             self.url.set_text(request.url)
 
     async def send_request(self, request: Request):
-        import logging
-        logging.debug("before!")
         result = await self.__client.send(request)
         response = Response(
             status=result.status_code,
             headers=result.headers,
-            data = result.content,
+            data =result.content,
         )
-        logging.debug("here!")
         return framed.task.TaskResult(data=response, process=lambda response: self.__on_response(request.id, response))
 
     def __on_response(self, request_id: uuid.UUID, response: Response):
         import logging
-        logging.debug("Got response!")
+        logging.debug(f"setting responses!")
         self.responses.set(self.responses.get() | {request_id: response})
 
 

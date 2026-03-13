@@ -1,11 +1,13 @@
 import enum
 import logging
 import traceback
+import typing
 import uuid
 
 import framed
 import framed.context
 import framed.palette
+import framed.task
 from framed import keys
 
 from entities.context import AppContextEntity
@@ -13,8 +15,10 @@ from entities.settings import Settings
 from entities.request import Collection, Method, Request
 from entities.response import Response
 from persist import PersistStore
+
 from views.collection_view import CollectionView
 from views.request_view import RequestView
+from views.response_view import ResponseView
 
 
 class AppAction(enum.Enum):
@@ -67,6 +71,8 @@ class App(framed.App[AppContext]):
 
     collection_view: CollectionView
     request_view: RequestView
+    response_view: ResponseView
+
     store: PersistStore
 
     __bindings: dict[int, AppAction]
@@ -95,6 +101,7 @@ class App(framed.App[AppContext]):
 
         self.collection_view = self.new_panel(CollectionView, split_path=collection_split)
         self.request_view = self.new_panel(RequestView, split_path=request_split)
+        self.response_view = self.new_panel(ResponseView, split_path=response_split)
 
         if self.context.collections:
             ordered_names = sorted(self.context.collections.keys())

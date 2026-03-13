@@ -1,6 +1,7 @@
 import argparse
 import curses
 import logging
+import logging.config
 import os
 import pathlib
 import traceback
@@ -20,7 +21,37 @@ def load_options():
 
 
 def begin_debug_mode():
-    logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.DEBUG, handlers=[logging.FileHandler("/tmp/pylog")])
+    logging.config.dictConfig({
+        "version": 1,
+        "handlers": {
+            "default": {
+                "class": "logging.FileHandler",
+                "formatter": "default",
+                "filename": "/tmp/py.log",
+                "level": "DEBUG",
+            }
+        },
+        "formatters": {
+            "default": {
+                "format": "[%(levelname)s %(name)s] %(message)s",
+            }
+        },
+        "loggers": {
+            "httpcore.connection": {
+                "propagate": False,
+            },
+            "httpcore.http11": {
+                "propagate": False,
+            },
+            "framed": {
+                "handlers": ["default"],
+            }
+        },
+        "root": {
+            "level": "DEBUG",
+            "handlers": ["default"]
+        }
+    })
     logging.debug("DEBUG MODE STARTED")
 
 
