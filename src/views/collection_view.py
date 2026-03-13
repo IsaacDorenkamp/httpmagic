@@ -8,13 +8,13 @@ from framed import keys
 from framed.widgets import *
 
 from entities.request import Collection
-from typedefs import MessageType, SetRequest
 
 
 class CollectionView(framed.Panel):
     collection: Label
     requests: ListBox
 
+    collections: framed.context.ContextRef[dict[str, Collection]]
     active_collection: framed.context.ContextRef[str | None]
     active_request: framed.context.ContextRef[uuid.UUID | None]
 
@@ -34,8 +34,10 @@ class CollectionView(framed.Panel):
         self.add(self.collection)
         self.add(self.requests)
 
+        self.collections = root.context.ref("collections")
         self.active_collection = root.context.ref("active_collection")
         self.active_request = root.context.ref("active_request")
+        self.collections.handle(self.on_collections_changed)
         self.active_collection.handle(self.on_active_collection_changed)
         self.active_request.handle(self.on_active_request_changed)
 
@@ -78,4 +80,9 @@ class CollectionView(framed.Panel):
         else:
             index = self.requests.find_item(request_id)
             self.requests.set_selection(index)
+
+    def on_collections_changed(self, collections: dict[str, Collection]):
+        active_collection = self.active_collection.get()
+        if active_collection is not None:
+            self.set_collection(collections[active_collection])
 

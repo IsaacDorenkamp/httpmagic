@@ -17,6 +17,7 @@ from entities.response import Response
 from persist import PersistStore
 
 from views.collection_view import CollectionView
+from views.command_view import CommandView
 from views.request_view import RequestView
 from views.response_view import ResponseView
 
@@ -27,6 +28,8 @@ class AppAction(enum.Enum):
     request_method = "request_method"
     request_url = "request_url"
     request_send = "request_send"
+
+    command_focus = "command_focus"
 
 
 class AppContext(framed.context.Context):
@@ -67,9 +70,11 @@ class App(framed.App[AppContext]):
         keys.M: AppAction.request_method,
         keys.U: AppAction.request_url,
         keys.S: AppAction.request_send,
+        keys.COLON: AppAction.command_focus,
     }
 
     collection_view: CollectionView
+    command_view: CommandView
     request_view: RequestView
     response_view: ResponseView
 
@@ -98,8 +103,10 @@ class App(framed.App[AppContext]):
 
         manager.set_proportions((), (1, 0))
         manager.set_proportions(app_split, (1, 2, 2))
+        manager.set_min_size(command_split, 2)
 
         self.collection_view = self.new_panel(CollectionView, split_path=collection_split)
+        self.command_view = self.new_panel(CommandView, split_path=command_split)
         self.request_view = self.new_panel(RequestView, split_path=request_split)
         self.response_view = self.new_panel(ResponseView, split_path=response_split)
 
@@ -111,6 +118,7 @@ class App(framed.App[AppContext]):
                 request = collection.requests[0]
                 self.context.active_request = request.id
 
+    # --- Controllers ---
     def on_input(self, ch: int):
         action = self.__bindings.get(ch)
         if action is not None:
@@ -123,6 +131,9 @@ class App(framed.App[AppContext]):
                     self.focus(self.request_view.url)
                 case AppAction.request_send:
                     self.focus(self.request_view.send)
+                case AppAction.command_focus:
+                    self.focus(self.command_view.command)
+                    return framed.FocusCapture.passthrough  # trick to pass the colon press to the editor
             return framed.FocusCapture.capture
 
     def task_callback(self, task_id: int, status: framed.task.TaskStatus, info: typing.Any):
@@ -130,6 +141,40 @@ class App(framed.App[AppContext]):
             formatted = "".join(traceback.format_exception(info)).split("\n")
             for line in formatted:
                 logging.error(line)
+
+    # --- Public API ---
+    def create_request(self, name: str, activate: bool = False):
+        active_collection = self.context.active_collection
+        if active_collection is None:
+            raise ValueError("No collection is active.")
+
+        request = Request(name=name, id=uuid.uuid4(), method=Method.GET, url="", headers={})
+        with self.context.mutate("collections") as collections:
+            collection: Collection = collections.value[active_collection]
+            if name in [request.name for request in collection.requests]:
+                collections.cancel()
+                raise ValueError(f"Collection '{collection.name}' already has a request named '{name}'")
+            collection.requests.append(request)
+
+        with self.context.mutate("requests") as requests:
+            requests.value[request.id] = request.copy()
+
+        if activate:
+            with self.context.mutate("active_request") as active_request:
+                active_request.value = request.id
+
+    def create_collection(self, name: str, activate: bool = False):
+        if name in [collection.name for collection in self.context.collections.values()]:
+            raise ValueError(f"A collection named '{name}' already exists.")
+
+        collection = Collection(name=name, id=uuid.uuid4(), requests=[])
+        with self.context.mutate("collections") as collections:
+            collections.value[collection.name] = collection
+
+        if activate:
+            with self.context.mutate("active_collection") as active_collection:
+                active_collection.value = name
+
 
 """
 class App:

@@ -128,7 +128,10 @@ def command_new_request(args: dict[str, str], app: App):
 @register("nc", ["name"])
 def command_new_collection(args: dict[str, str], app: App):
     name = args["name"]
-    app.create_collection(name, True)
+    try:
+        app.create_collection(name, True)
+    except ValueError as err:
+        raise CommandError(str(err))
 
 
 @register("rr", ["name"])
