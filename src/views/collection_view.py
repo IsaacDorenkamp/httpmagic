@@ -14,9 +14,11 @@ class CollectionView(framed.Panel):
     collection: Label
     requests: ListBox
 
-    collections: framed.context.ContextRef[dict[str, Collection]]
-    active_collection: framed.context.ContextRef[str | None]
+    collections: framed.context.ContextRef[dict[uuid.UUID, Collection]]
+    active_collection: framed.context.ContextRef[uuid.UUID | None]
     active_request: framed.context.ContextRef[uuid.UUID | None]
+    dirty_requests: framed.context.ContextRef[set[uuid.UUID]]
+    dirty_collections: framed.context.ContextRef[set[uuid.UUID]]
 
     def __init__(self, region: framed.rect2, owner: framed.Manager, root: framed.App):
         super().__init__(region, owner, root)
@@ -37,9 +39,13 @@ class CollectionView(framed.Panel):
         self.collections = root.context.ref("collections")
         self.active_collection = root.context.ref("active_collection")
         self.active_request = root.context.ref("active_request")
+        self.dirty_requests = root.context.ref("dirty_requests")
+        self.dirty_collections = root.context.ref("dirty_collections")
         self.collections.handle(self.on_collections_changed)
         self.active_collection.handle(self.on_active_collection_changed)
         self.active_request.handle(self.on_active_request_changed)
+        self.dirty_requests.handle(self.on_dirty_requests_changed)
+        self.dirty_collections.handle(self.on_dirty_collections_change)
 
     def arrange(self):
         flex = self.flex()
@@ -51,8 +57,15 @@ class CollectionView(framed.Panel):
     def set_collection(self, collection: Collection):
         self.collection.set_text(collection.name)
         self.requests.clear()
+        dirty_requests = self.dirty_requests.get()
         for request in sorted(collection.requests, key=lambda r: r.name):
-            self.requests.add_item(request.name, request.id)
+            is_dirty = request.id in dirty_requests
+            self.requests.add_item(f"{request.name} *" if is_dirty else request.name, request.id)
+
+        active_request = self.active_request.get()
+        if active_request is not None:
+            index = self.requests.find_item(active_request)
+            self.requests.set_selection(index)
 
     def set_selected_request(self, request: str):
         index = self.requests.find_item(request)
@@ -66,7 +79,7 @@ class CollectionView(framed.Panel):
             req_id = None
         self.root.context.active_request = req_id
 
-    def on_active_collection_changed(self, new_collection_id: str | None):
+    def on_active_collection_changed(self, new_collection_id: uuid.UUID | None):
         if new_collection_id is not None:
             collection = self.root.context.collections.get(new_collection_id)
             if collection:
@@ -81,8 +94,23 @@ class CollectionView(framed.Panel):
             index = self.requests.find_item(request_id)
             self.requests.set_selection(index)
 
-    def on_collections_changed(self, collections: dict[str, Collection]):
+    def on_collections_changed(self, collections: dict[uuid.UUID, Collection]):
         active_collection = self.active_collection.get()
         if active_collection is not None:
             self.set_collection(collections[active_collection])
+
+    def on_dirty_requests_changed(self, dirty_requests: set[uuid.UUID]):
+        for index in range(self.requests.count):
+            req_text, req_id = self.requests.get_item_pair(index)
+            if req_id in dirty_requests and not req_text.endswith(" *"):
+                self.requests.set_item_text(index, f"{req_text} *")
+            elif req_id not in dirty_requests and req_text.endswith(" *"):
+                self.requests.set_item_text(index, req_text[:-2])
+
+    def on_dirty_collections_change(self, dirty_collections: set[uuid.UUID]):
+        # FIX: firing, but not changing the title
+        active_collection = self.active_collection.get()
+        if active_collection in dirty_collections:
+            collection = self.root.context.collections[active_collection]
+            self.collection.set_text(f"{collection.name} *")
 

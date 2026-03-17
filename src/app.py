@@ -33,25 +33,29 @@ class AppAction(enum.Enum):
 
 
 class AppContext(framed.context.Context):
-    collections: dict[str, Collection]
+    collections: dict[uuid.UUID, Collection]
     requests: dict[uuid.UUID, Request]
     responses: dict[uuid.UUID, Response]
-    active_collection: str | None
+    active_collection: uuid.UUID | None
     active_request: uuid.UUID | None
+    dirty_requests: set[uuid.UUID]
+    dirty_collections: set[uuid.UUID]
 
     def __init__(self):
         super().__init__()
         self.create_var("collections", {}, dict)
         self.create_var("requests", {}, dict)
         self.create_var("responses", {}, dict)
-        self.create_var("active_collection", None, str)
+        self.create_var("active_collection", None, uuid.UUID)
         self.create_var("active_request", None, uuid.UUID)
+        self.create_var("dirty_requests", set(), set)
+        self.create_var("dirty_collections", set(), set)
 
     def conform(self, entity: AppContextEntity):
         collections = {}
         requests = {}
         for collection in entity.collections:
-            collections[collection.name] = collection
+            collections[collection.id] = collection
             for request in collection.requests:
                 requests[request.id] = request
         self.collections = collections
@@ -111,8 +115,8 @@ class App(framed.App[AppContext]):
         self.response_view = self.new_panel(ResponseView, split_path=response_split)
 
         if self.context.collections:
-            ordered_names = sorted(self.context.collections.keys())
-            self.context.active_collection = ordered_names[0]
+            alpha_first = sorted(self.context.collections.values(), key=lambda collection: collection.name)[0]
+            self.context.active_collection = alpha_first.id  # FIX: this sucks
             collection = self.context.collections[self.context.active_collection]
             if collection.requests:
                 request = collection.requests[0]
@@ -148,7 +152,7 @@ class App(framed.App[AppContext]):
         if active_collection is None:
             raise ValueError("No collection is active.")
 
-        request = Request(name=name, id=uuid.uuid4(), method=Method.GET, url="", headers={})
+        request = Request(name=name, id=uuid.uuid4(), parent=active_collection, method=Method.GET, url="", headers={})
         with self.context.mutate("collections") as collections:
             collection: Collection = collections.value[active_collection]
             if name in [request.name for request in collection.requests]:
@@ -156,22 +160,120 @@ class App(framed.App[AppContext]):
                 raise ValueError(f"Collection '{collection.name}' already has a request named '{name}'")
             collection.requests.append(request)
 
-        with self.context.mutate("requests") as requests:
+        with self.context.mutate("requests") as requests, self.context.mutate("dirty_requests") as dirty_requests:
             requests.value[request.id] = request.copy()
+            new_dirty = set(dirty_requests.value)
+            new_dirty.add(request.id)
+            dirty_requests.value = new_dirty
 
         if activate:
-            with self.context.mutate("active_request") as active_request:
-                active_request.value = request.id
+            self.context.active_request = request.id
 
     def create_collection(self, name: str, activate: bool = False):
         if name in [collection.name for collection in self.context.collections.values()]:
             raise ValueError(f"A collection named '{name}' already exists.")
 
         collection = Collection(name=name, id=uuid.uuid4(), requests=[])
-        with self.context.mutate("collections") as collections:
-            collections.value[collection.name] = collection
+        self.context.collections = self.context.collections | {collection.id: collection}
 
         if activate:
-            with self.context.mutate("active_collection") as active_collection:
-                active_collection.value = name
+            self.context.active_collection = collection.id
+
+    def set_active_collection(self, name: str):
+        collection = next((collection for collection in self.context.collections.values() if collection.name == name), None)
+        if collection is None:
+            raise ValueError(f"No collection '{name}'")
+
+        self.context.active_collection = collection.id
+        self.context.active_request = sorted(collection.requests, key=lambda request: request.name)[0].id if collection else None
+
+    def set_active_request(self, request: uuid.UUID | None, sync_parent: bool = False):
+        if request is not None and request not in self.context.requests.keys():
+            raise ValueError(f"No request with id '{request}'")
+
+        req = self.context.requests.get(request) if request else None
+        if req is not None:
+            new_id = req.id
+            collection = req.parent if sync_parent else None
+        else:
+            new_id = None
+            collection = None
+
+        self.context.active_request = new_id
+        if collection is not None:
+            self.context.active_collection = collection
+
+    def rename_active_request(self, name: str):
+        active_request = self.context.active_request
+        if active_request is None:
+            raise ValueError("No request is currently active.")
+
+        with (
+            self.context.mutate("requests") as requests,
+            self.context.mutate("collections") as collections,
+            self.context.mutate("dirty_requests") as dirty_requests
+        ):
+            new_req = requests.value[active_request].copy()
+            if name == new_req.name:
+                # ignore
+                raise ValueError("Name did not change!")
+            new_req.name = name
+            requests.value = requests.value | {new_req.id: new_req}
+            dirty_requests.value = dirty_requests.value | {new_req.id}
+
+            if new_req.parent is None:
+                # if this is a free-floating request, don't update collections
+                return
+
+            # update collection
+            existing = collections.value.get(new_req.parent)
+            if existing is None:
+                requests.cancel()
+                collections.cancel()
+                return
+            new_collection = existing.copy()
+            new_collection.requests = [request if request.id != new_req.id else new_req for request in new_collection.requests]
+            collections.value = collections.value | {new_collection.name: new_collection}
+
+    def save_active_request(self):
+        active_request = self.context.active_request
+        if active_request is None:
+            raise ValueError("No request is currently active.")
+
+        request = self.context.requests[active_request]
+        collection = self.context.collections.get(request.parent) if request.parent else None
+        if collection is None:
+            raise ValueError("Request has no parent collection!")
+        self.store.save_request(self.store.get_collection_root(collection), request)
+
+        with self.context.mutate("dirty_requests") as dirty_requests:
+            new_dirty = set(dirty_requests.value)
+            if request.id in dirty_requests.value:
+                new_dirty.remove(request.id)
+                dirty_requests.value = new_dirty
+            else:
+                dirty_requests.cancel()
+
+    def rename_active_collection(self, name: str):
+        active_collection = self.context.active_collection
+        if active_collection is None:
+            raise ValueError("No collection is currently active.")
+
+        if name in [collection.name for collection in self.context.collections.values() if collection.id != active_collection]:
+            raise ValueError("A collection with that name already exists!")
+
+        with (
+            self.context.mutate("collections") as collections,
+            self.context.mutate("dirty_collections") as dirty_collections
+        ):
+            if name == collections.value[active_collection].name:
+                collections.cancel()
+                dirty_collections.cancel()
+                return
+            new_collection = collections.value[active_collection].copy()
+            new_collection.name = name
+            new_collections = dict(collections.value)
+            new_collections[new_collection.id] = new_collection
+            collections.value = new_collections
+            dirty_collections.value = dirty_collections.value | {new_collection.id}
 

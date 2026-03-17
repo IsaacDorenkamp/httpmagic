@@ -134,6 +134,15 @@ def command_new_collection(args: dict[str, str], app: App):
         raise CommandError(str(err))
 
 
+@register("gc", ["name"])
+def command_goto_collection(args: dict[str, str], app: App):
+    name = args["name"]
+    try:
+        app.set_active_collection(name)
+    except ValueError as err:
+        raise CommandError(str(err))
+
+
 @register("rr", ["name"])
 def command_rename_request(args: dict[str, str], app: App):
     name = args["name"]

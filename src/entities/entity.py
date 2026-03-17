@@ -158,7 +158,7 @@ class Entity(metaclass=EntityMeta):
             
         if kwargs:
             keys = list(kwargs.keys())
-            raise ValueError(f"entity {self.__name__} has no field {keys[0]}")
+            raise ValueError(f"entity {self.__class__.__name__} has no field {keys[0]}")
 
     def copy(self):
         return copy.deepcopy(self)

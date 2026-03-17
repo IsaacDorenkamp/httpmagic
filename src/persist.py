@@ -40,7 +40,7 @@ class PersistStore:
             collection_root.mkdir(parents=True)
 
         with open(collection_root.joinpath(f"{request.id}.json"), "w") as fp:
-            json.dump(request, fp, cls=EntityEncoder, exclude={"Request.id"})
+            json.dump(request, fp, cls=EntityEncoder, exclude={"Request.id", "Request.parent"})
 
     def load(self) -> tuple[AppContextEntity, ExceptionGroup | None]:
         if not self.__collections.is_dir():
@@ -62,6 +62,8 @@ class PersistStore:
                         continue
 
                     requests, req_errors = PersistStore.load_requests(request_dir)
+                    for request in requests:
+                        request.parent = collection.id
                     collection.requests = requests
                     errors.extend(req_errors)
                 except Exception as exc:
@@ -89,7 +91,7 @@ class PersistStore:
                     request_id = uuid.UUID(first_part)
                     with open(child, "r") as fp:
                         data = json.load(fp)
-                    request = Request(id=request_id, **data)
+                    request = Request(id=request_id, parent=None, **data)
                     requests.append(request)
                 except Exception as exc:
                     err = LoadError("Failed to load request from '%s'" % str(child))

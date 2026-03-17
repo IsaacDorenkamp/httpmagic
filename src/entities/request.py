@@ -35,6 +35,7 @@ class Method(enum.StrEnum):
 class Request(Entity):
     name: str
     id: uuid.UUID
+    parent: uuid.UUID | None
 
     method: Method
     url: str
