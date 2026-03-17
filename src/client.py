@@ -7,7 +7,7 @@ class MagicClient:
     _client: httpx.AsyncClient
 
     def __init__(self):
-        self._client = httpx.AsyncClient()
+        self._client = httpx.AsyncClient(timeout=None)
 
     async def send(self, request: Request):
         return await self._client.request(
