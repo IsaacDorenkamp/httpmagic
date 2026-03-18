@@ -161,6 +161,14 @@ def command_rename_collection(args: dict[str, str], app: App):
         raise CommandError(str(err))
 
 
+@register("sc", [])
+def command_save_collection(_: dict[str, str], app: App):
+    try:
+        app.save_active_collection()
+    except ValueError as err:
+        raise CommandError(str(err))
+
+
 @register("sr", [])
 def command_save_request(_: dict[str, str], app: App):
     try:

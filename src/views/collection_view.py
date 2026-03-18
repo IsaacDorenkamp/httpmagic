@@ -55,7 +55,7 @@ class CollectionView(framed.Panel):
         flex.add(self.requests, row=1, weight=1)
 
     def set_collection(self, collection: Collection):
-        self.collection.set_text(collection.name)
+        self.collection.set_text(f"{collection.name} *" if collection.id in self.dirty_collections.get() else collection.name)
         self.requests.clear()
         dirty_requests = self.dirty_requests.get()
         for request in sorted(collection.requests, key=lambda r: r.name):
@@ -108,9 +108,10 @@ class CollectionView(framed.Panel):
                 self.requests.set_item_text(index, req_text[:-2])
 
     def on_dirty_collections_change(self, dirty_collections: set[uuid.UUID]):
-        # FIX: firing, but not changing the title
         active_collection = self.active_collection.get()
+        collection = self.root.context.collections[active_collection]
         if active_collection in dirty_collections:
-            collection = self.root.context.collections[active_collection]
             self.collection.set_text(f"{collection.name} *")
+        else:
+            self.collection.set_text(collection.name)
 

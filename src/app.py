@@ -92,7 +92,6 @@ class App(framed.App[AppContext]):
         self.context.conform(context)
         self.__bindings = App._DEFAULT_BINDINGS.copy()
         self.set_control_handler(self.on_input)
-        self.set_task_callback(self.task_callback)
         self.__make_colors()
         self.__configure()
 
@@ -263,8 +262,8 @@ class App(framed.App[AppContext]):
             raise ValueError("A collection with that name already exists!")
 
         with (
+            self.context.mutate("dirty_collections") as dirty_collections,
             self.context.mutate("collections") as collections,
-            self.context.mutate("dirty_collections") as dirty_collections
         ):
             if name == collections.value[active_collection].name:
                 collections.cancel()
@@ -276,4 +275,20 @@ class App(framed.App[AppContext]):
             new_collections[new_collection.id] = new_collection
             collections.value = new_collections
             dirty_collections.value = dirty_collections.value | {new_collection.id}
+
+    def save_active_collection(self):
+        active_collection = self.context.active_collection
+        if active_collection is None:
+            raise ValueError("No collection is currently active.")
+
+        collection = self.context.collections[active_collection]
+        self.store.save_collection(collection)
+
+        with self.context.mutate("dirty_collections") as dirty_collections:
+            new_dirty = set(dirty_collections.value)
+            if collection.id in new_dirty:
+                new_dirty.remove(collection.id)
+                dirty_collections.value = new_dirty
+            else:
+                dirty_collections.cancel()
 

@@ -26,6 +26,7 @@ class RequestView(framed.Panel):
     requests: framed.context.ContextRef[dict[uuid.UUID, Request]]
     responses: framed.context.ContextRef[dict[uuid.UUID, Response]]
     active_request: framed.context.ContextRef[uuid.UUID | None]
+    dirty_requests: framed.context.ContextRef[set[uuid.UUID]]
 
     __request: Request | None
     __client: MagicClient
@@ -40,6 +41,7 @@ class RequestView(framed.Panel):
         self.requests = root.context.ref("requests")
         self.responses = root.context.ref("responses")
         self.active_request = root.context.ref("active_request")
+        self.dirty_requests = root.context.ref("dirty_requests")
         self.active_request.handle(self.set_request)
 
     def __configure(self):
@@ -86,17 +88,21 @@ class RequestView(framed.Panel):
     def on_method_change(self, event: framed.event.ChangeEvent[OptionBoxChange]):
         self.method.foreground = event.value.label.lower()
         if self.__request is not None:
-            if event.value.value:
+            if event.value.value and event.value.value != self.__request.method:
                 self.__request.method = event.value.value
+                self.__mark_dirty(self.__request.id)
 
     def on_url_change(self, event: framed.event.ChangeEvent[str]):
         if self.__request is not None:
             self.__request.url = event.value
+            self.__mark_dirty(self.__request.id)
 
     def on_send(self, event: framed.event.ActionEvent):
         if self.__request is None:
             return
-        self.root.task(self.send_request, (self.__request,))
+        task = self.root.task(self.send_request, (self.__request,))
+        req_id = self.__request.id
+        task.after(lambda response: self.__on_response(req_id, response))
 
     # --- Controllers ---
     def set_request(self, request_id: uuid.UUID | None):
@@ -111,12 +117,17 @@ class RequestView(framed.Panel):
 
     async def send_request(self, request: Request):
         result = await self.__client.send(request)
-        response = Response(
+        return Response(
             status=result.status_code,
             headers=result.headers,
             data=result.content,
         )
-        return framed.task.TaskResult(data=response, process=lambda response: self.__on_response(request.id, response))
+
+    def __mark_dirty(self, request_id: uuid.UUID):
+        with self.dirty_requests.mutate() as dirty_requests:
+            new_dirty = set(dirty_requests.value)
+            new_dirty.add(request_id)
+            dirty_requests.value = new_dirty
 
     def __on_response(self, request_id: uuid.UUID, response: Response):
         self.responses.set(self.responses.get() | {request_id: response})
