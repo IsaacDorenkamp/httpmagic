@@ -1,5 +1,4 @@
 from __future__ import annotations
-import functools
 import uuid
 
 import framed
@@ -7,7 +6,6 @@ import framed.context
 from framed.const import *
 import framed.event
 import framed.keys
-import framed.task
 from framed.widgets import *
 
 from client import MagicClient
@@ -25,6 +23,7 @@ class RequestView(framed.Panel):
 
     requests: framed.context.ContextRef[dict[uuid.UUID, Request]]
     responses: framed.context.ContextRef[dict[uuid.UUID, Response]]
+    errors: framed.context.ContextRef[dict[uuid.UUID, BaseException]]
     active_request: framed.context.ContextRef[uuid.UUID | None]
     dirty_requests: framed.context.ContextRef[set[uuid.UUID]]
 
@@ -40,6 +39,7 @@ class RequestView(framed.Panel):
         # context vars
         self.requests = root.context.ref("requests")
         self.responses = root.context.ref("responses")
+        self.errors = root.context.ref("errors")
         self.active_request = root.context.ref("active_request")
         self.dirty_requests = root.context.ref("dirty_requests")
         self.active_request.handle(self.set_request)
@@ -76,10 +76,10 @@ class RequestView(framed.Panel):
         flex.set_row_weight(2, 1)
         flex.set_row_weight(3, 0)
         flex.set_row_weight(4, 0)
-        flex.add(self.method_label, row=1, weight=1)
-        flex.add(self.method, row=1, weight=1)
-        flex.add(self.url_label, row=1, weight=1)
-        flex.add(self.url, row=1, weight=3)
+        flex.add(self.method_label, row=1, weight=0)
+        flex.add(self.method, row=1, weight=0)
+        flex.add(self.url_label, row=1, weight=0)
+        flex.add(self.url, row=1, weight=1)
         flex.add_spacer(row=3, weight=1)
         flex.add(self.send, row=3, weight=0)
         flex.add_spacer(row=3, weight=0)
@@ -103,6 +103,7 @@ class RequestView(framed.Panel):
         task = self.root.task(self.send_request, (self.__request,))
         req_id = self.__request.id
         task.after(lambda response: self.__on_response(req_id, response))
+        task.catch(lambda err: self.__on_response_failure(req_id, err))
 
     # --- Controllers ---
     def set_request(self, request_id: uuid.UUID | None):
@@ -116,6 +117,11 @@ class RequestView(framed.Panel):
             self.url.set_text(request.url)
 
     async def send_request(self, request: Request):
+        errors = self.errors.get()
+        if request.id in errors:
+            new_errors = dict(errors)
+            del new_errors[request.id]
+            self.errors.set(new_errors)
         result = await self.__client.send(request)
         return Response(
             status=result.status_code,
@@ -131,4 +137,7 @@ class RequestView(framed.Panel):
 
     def __on_response(self, request_id: uuid.UUID, response: Response):
         self.responses.set(self.responses.get() | {request_id: response})
+
+    def __on_response_failure(self, req_id: uuid.UUID, exc: BaseException):
+        self.errors.set(self.errors.get() | {req_id: exc})
 

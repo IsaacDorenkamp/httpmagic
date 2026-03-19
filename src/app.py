@@ -36,6 +36,7 @@ class AppContext(framed.context.Context):
     collections: dict[uuid.UUID, Collection]
     requests: dict[uuid.UUID, Request]
     responses: dict[uuid.UUID, Response]
+    errors: dict[uuid.UUID, BaseException]
     active_collection: uuid.UUID | None
     active_request: uuid.UUID | None
     dirty_requests: set[uuid.UUID]
@@ -46,6 +47,7 @@ class AppContext(framed.context.Context):
         self.create_var("collections", {}, dict)
         self.create_var("requests", {}, dict)
         self.create_var("responses", {}, dict)
+        self.create_var("errors", {}, dict)
         self.create_var("active_collection", None, uuid.UUID)
         self.create_var("active_request", None, uuid.UUID)
         self.create_var("dirty_requests", set(), set)
