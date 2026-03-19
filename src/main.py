@@ -56,10 +56,15 @@ def begin_debug_mode():
 
 
 def main(stdscr: curses.window):
+    import locale
+    locale.setlocale(locale.LC_ALL, '')
+    code = locale.getpreferredencoding()
+
     options = load_options()
     if options.debug:
         begin_debug_mode()
 
+    logging.debug(f"Encoding: {code}")
     framed.palette.setup()
 
     store = persist.PersistStore(options.root)

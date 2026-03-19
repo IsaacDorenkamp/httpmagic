@@ -6,6 +6,7 @@ import framed.context
 from framed.widgets import *
 
 from entities.response import Response
+import util
 
 
 class ResponseView(framed.Panel):
@@ -13,6 +14,9 @@ class ResponseView(framed.Panel):
     errors: framed.context.ContextRef[dict[uuid.UUID, BaseException]]
     responses: framed.context.ContextRef[dict[uuid.UUID, Response]]
 
+    prestatus: Label
+    status: Label
+    poststatus: Label
     response: Editor
 
     def __init__(self, region: framed.rect2, owner: framed.Manager, root: framed.App):
@@ -25,13 +29,26 @@ class ResponseView(framed.Panel):
         self.errors.handle(self.on_errors_changed)
         self.responses.handle(self.on_responses_changed)
 
+        self.prestatus = Label("\uE0B2")
+        self.prestatus.foreground = "green"
+        self.status = Label(" 200 OK ")
+        self.status.background = "green"
+        self.poststatus = Label("\uE0B0")
+        self.poststatus.foreground = "green"
         self.response = Editor()
         self.response.editable = False
+        self.add(self.prestatus)
+        self.add(self.status)
+        self.add(self.poststatus)
         self.add(self.response)
 
     def arrange(self):
-        grid = self.grid()
-        grid.add(self.response, 0, 0)
+        flex = self.flex()
+        flex.set_row_weight(1, 1)
+        flex.add(self.prestatus, 0, 0)
+        flex.add(self.status, 0, 0)
+        flex.add(self.poststatus, 0, 0)
+        flex.add(self.response, 1, 1)
 
     # --- Controllers ---
     def on_request_changed(self, request: uuid.UUID | None):
@@ -75,6 +92,11 @@ class ResponseView(framed.Panel):
             if error is not None:
                 self.response.set_text(f"Request Failed: {str(error)}")
             elif response is not None:
+                color = util.get_status_color(response.status)
+                self.prestatus.foreground = color
+                self.poststatus.foreground = color
+                self.status.background = color
+                self.status.set_text(f"{response.status}")
                 self.response.set_text(response.data.decode('utf-8'))
             else:
                 self.response.set_text("")

@@ -23,3 +23,17 @@ def report_exception(exception: Exception):
         logging.error(line)
 
 
+def get_status_color(status: int):
+    if status >= 500:
+        return "magenta"
+    elif status >= 400:
+        return "red"
+    elif status >= 300:
+        return "cyan"
+    elif status >= 200:
+        return "green"
+    elif status >= 100:
+        return "blue"
+    else:
+        return "yellow"
+
