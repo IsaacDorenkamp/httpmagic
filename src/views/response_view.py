@@ -96,7 +96,7 @@ class ResponseView(framed.Panel):
                 self.prestatus.foreground = color
                 self.poststatus.foreground = color
                 self.status.background = color
-                self.status.set_text(f"{response.status}")
+                self.status.set_text(f" {response.status} {util.get_status_phrase(response.status)} ")
                 self.response.set_text(response.data.decode('utf-8'))
             else:
                 self.response.set_text("")

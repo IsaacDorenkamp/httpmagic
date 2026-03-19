@@ -1,6 +1,8 @@
 import logging
 import traceback
 
+import httpx
+
 
 def ellipsize(string: str, max_len: int):
     if len(string) <= max_len:
@@ -36,4 +38,8 @@ def get_status_color(status: int):
         return "blue"
     else:
         return "yellow"
+
+
+def get_status_phrase(status: int):
+    return httpx.codes.get_reason_phrase(status) or "UNKNOWN"
 
