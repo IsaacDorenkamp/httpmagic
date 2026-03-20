@@ -45,6 +45,7 @@ def begin_debug_mode():
             },
             "framed": {
                 "handlers": ["default"],
+                "propagate": False,
             }
         },
         "root": {

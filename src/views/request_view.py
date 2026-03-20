@@ -11,6 +11,7 @@ from framed.widgets import *
 from client import MagicClient
 from entities.request import Method, Request
 from entities.response import Response
+import util
 
 
 class RequestView(framed.Panel):
@@ -122,11 +123,16 @@ class RequestView(framed.Panel):
             new_errors = dict(errors)
             del new_errors[request.id]
             self.errors.set(new_errors)
+        before = util.get_ms()
         result = await self.__client.send(request)
+        after = util.get_ms()
+        diff = round(after - before)
         return Response(
             status=result.status_code,
             headers=result.headers,
             data=result.content,
+            size=len(result.content),
+            time=diff,
         )
 
     def __mark_dirty(self, request_id: uuid.UUID):

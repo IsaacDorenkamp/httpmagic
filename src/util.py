@@ -1,4 +1,5 @@
 import logging
+import time
 import traceback
 
 import httpx
@@ -42,4 +43,24 @@ def get_status_color(status: int):
 
 def get_status_phrase(status: int):
     return httpx.codes.get_reason_phrase(status) or "UNKNOWN"
+
+
+def get_ms():
+    return time.time() * 1000
+
+
+KB = 1024
+MB = 1024 * KB
+GB = 1024 * MB
+
+
+def get_size_string(num_bytes: int):
+    if num_bytes >= GB:
+        return "%.2f GB" % (num_bytes / GB)
+    elif num_bytes >= MB:
+        return "%.2f MB" % (num_bytes / MB)
+    elif num_bytes >= KB:
+        return "%.2f KB" % (num_bytes / KB)
+    else:
+        return f"{num_bytes} B"
 
