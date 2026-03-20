@@ -4,6 +4,7 @@ import uuid
 import framed
 import framed.context
 from framed.widgets import *
+from framed import keys
 
 from entities.response import Response
 import util
@@ -38,6 +39,11 @@ class ResponseView(framed.Panel):
         self.content_size = Label("")
         self.response = Editor()
         self.response.editable = False
+        self.response.bind(keys.j, EditorAction.nav_down)
+        self.response.bind(keys.k, EditorAction.nav_up)
+        self.response.bind(keys.h, EditorAction.nav_left)
+        self.response.bind(keys.l, EditorAction.nav_right)
+        self.response.bind(keys.ESCAPE, EditorAction.nav_unfocus)
         self.add(self.prestatus)
         self.add(self.status)
         self.add(self.time)

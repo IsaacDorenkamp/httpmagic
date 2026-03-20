@@ -57,7 +57,7 @@ class RequestView(framed.Panel):
         self.url_label = Label("URL: ")
         self.url_label.align = HAlign.RIGHT
         self.url = Editor(model_cls=LineTextModel)
-        self.url.bind(framed.keys.ENTER, EditorAction.edit_finish)
+        self.url.bind(framed.keys.ENTER, EditorAction.nav_unfocus)
         self.url.listen(framed.event.ChangeEvent, self.on_url_change)
         self.send = Button("Send", bordered=False)
         self.send.focus_foreground = "green"

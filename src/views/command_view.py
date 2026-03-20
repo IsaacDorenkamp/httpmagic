@@ -20,7 +20,7 @@ class CommandView(Panel):
         self.status = Label("")
         self.command = Editor()
         self.command.unbind(keys.ESCAPE)
-        self.command.bind(keys.ENTER, EditorAction.edit_finish)
+        self.command.bind(keys.ENTER, EditorAction.nav_unfocus)
         self.command.listen(framed.event.ChangeEvent, self.on_command)
         self.add(self.status)
         self.add(self.command)

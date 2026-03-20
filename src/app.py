@@ -1,13 +1,9 @@
 import enum
-import logging
-import traceback
-import typing
 import uuid
 
 import framed
 import framed.context
 import framed.palette
-import framed.task
 from framed import keys
 
 from entities.context import AppContextEntity
@@ -30,6 +26,8 @@ class AppAction(enum.Enum):
     request_send = "request_send"
 
     command_focus = "command_focus"
+
+    response_focus = "response_focus"
 
 
 class AppContext(framed.context.Context):
@@ -77,6 +75,7 @@ class App(framed.App[AppContext]):
         keys.U: AppAction.request_url,
         keys.S: AppAction.request_send,
         keys.COLON: AppAction.command_focus,
+        keys.R: AppAction.response_focus,
     }
 
     collection_view: CollectionView
@@ -139,13 +138,9 @@ class App(framed.App[AppContext]):
                 case AppAction.command_focus:
                     self.focus(self.command_view.command)
                     return framed.FocusCapture.passthrough  # trick to pass the colon press to the editor
+                case AppAction.response_focus:
+                    self.focus(self.response_view.response)
             return framed.FocusCapture.capture
-
-    def task_callback(self, task_id: int, status: framed.task.TaskStatus, info: typing.Any):
-        if isinstance(info, Exception):
-            formatted = "".join(traceback.format_exception(info)).split("\n")
-            for line in formatted:
-                logging.error(line)
 
     # --- Public API ---
     def create_request(self, name: str, activate: bool = False):
