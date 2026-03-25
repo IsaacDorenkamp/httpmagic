@@ -25,6 +25,7 @@ class RequestView(framed.Panel):
     requests: framed.context.ContextRef[dict[uuid.UUID, Request]]
     responses: framed.context.ContextRef[dict[uuid.UUID, Response]]
     errors: framed.context.ContextRef[dict[uuid.UUID, BaseException]]
+    in_transit: framed.context.ContextRef[set[uuid.UUID]]
     active_request: framed.context.ContextRef[uuid.UUID | None]
     dirty_requests: framed.context.ContextRef[set[uuid.UUID]]
 
@@ -41,6 +42,7 @@ class RequestView(framed.Panel):
         self.requests = root.context.ref("requests")
         self.responses = root.context.ref("responses")
         self.errors = root.context.ref("errors")
+        self.in_transit = root.context.ref("in_transit")
         self.active_request = root.context.ref("active_request")
         self.dirty_requests = root.context.ref("dirty_requests")
         self.active_request.handle(self.set_request)
@@ -101,7 +103,21 @@ class RequestView(framed.Panel):
     def on_send(self, event: framed.event.ActionEvent):
         if self.__request is None:
             return
-        task = self.root.task(self.send_request, (self.__request,))
+
+        request = self.__request
+        errors = self.errors.get()
+        if request.id in errors:
+            new_errors = dict(errors)
+            del new_errors[request.id]
+            self.errors.set(new_errors)
+        responses = self.responses.get()
+        if request.id in responses:
+            new_responses = dict(responses)
+            del new_responses[request.id]
+            self.responses.set(new_responses)
+
+        self.in_transit.set(self.in_transit.get() | {request.id})
+        task = self.root.task(self.send_request, (request,))
         req_id = self.__request.id
         task.after(lambda response: self.__on_response(req_id, response))
         task.catch(lambda err: self.__on_response_failure(req_id, err))
@@ -118,11 +134,6 @@ class RequestView(framed.Panel):
             self.url.set_text(request.url)
 
     async def send_request(self, request: Request):
-        errors = self.errors.get()
-        if request.id in errors:
-            new_errors = dict(errors)
-            del new_errors[request.id]
-            self.errors.set(new_errors)
         before = util.get_ms()
         result = await self.__client.send(request)
         after = util.get_ms()
@@ -143,7 +154,9 @@ class RequestView(framed.Panel):
 
     def __on_response(self, request_id: uuid.UUID, response: Response):
         self.responses.set(self.responses.get() | {request_id: response})
+        self.in_transit.set(self.in_transit.get() - {request_id})
 
-    def __on_response_failure(self, req_id: uuid.UUID, exc: BaseException):
-        self.errors.set(self.errors.get() | {req_id: exc})
+    def __on_response_failure(self, request_id: uuid.UUID, exc: BaseException):
+        self.errors.set(self.errors.get() | {request_id: exc})
+        self.in_transit.set(self.in_transit.get() - {request_id})
 

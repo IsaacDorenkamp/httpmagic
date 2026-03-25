@@ -12,9 +12,11 @@ import util
 
 class ResponseView(framed.Panel):
     active_request: framed.context.ContextRef[uuid.UUID | None]
-    errors: framed.context.ContextRef[dict[uuid.UUID, BaseException]]
     responses: framed.context.ContextRef[dict[uuid.UUID, Response]]
+    errors: framed.context.ContextRef[dict[uuid.UUID, BaseException]]
+    in_transit: framed.context.ContextRef[set[uuid.UUID]]
 
+    loading: ProgressBar
     prestatus: Label
     status: Label
     time: Label
@@ -24,13 +26,17 @@ class ResponseView(framed.Panel):
     def __init__(self, region: framed.rect2, owner: framed.Manager, root: framed.App):
         super().__init__(region, owner, root)
         self.active_request = root.context.ref("active_request")
-        self.errors = root.context.ref("errors")
         self.responses = root.context.ref("responses")
+        self.errors = root.context.ref("errors")
+        self.in_transit = root.context.ref("in_transit")
 
         self.active_request.handle(self.on_request_changed)
-        self.errors.handle(self.on_errors_changed)
         self.responses.handle(self.on_responses_changed)
+        self.errors.handle(self.on_errors_changed)
+        self.in_transit.handle(self.on_in_transit_changed)
 
+        self.loading = ProgressBar(determinate=False)
+        #self.loading.active = False
         self.prestatus = Label("")
         self.prestatus.foreground = "green"
         self.status = Label("")
@@ -44,6 +50,7 @@ class ResponseView(framed.Panel):
         self.response.bind(keys.h, EditorAction.nav_left)
         self.response.bind(keys.l, EditorAction.nav_right)
         self.response.bind(keys.ESCAPE, EditorAction.nav_unfocus)
+        self.add(self.loading)
         self.add(self.prestatus)
         self.add(self.status)
         self.add(self.time)
@@ -53,7 +60,7 @@ class ResponseView(framed.Panel):
     def arrange(self):
         flex = self.flex()
         flex.set_row_weight(1, 1)
-        flex.add_spacer(0, 1)
+        flex.add(self.loading, 0, 1)
         flex.add(self.prestatus, 0, 0)
         flex.add(self.status, 0, 0)
         flex.add(self.time, 0, 0)
@@ -70,7 +77,10 @@ class ResponseView(framed.Panel):
     def on_responses_changed(self, responses: dict[uuid.UUID, Response]):
         self.__update(responses=responses)
 
-    def __update(self, request: uuid.UUID | None = None, responses: dict[uuid.UUID, Response] | None = None, errors: dict[uuid.UUID, BaseException] | None = None):
+    def on_in_transit_changed(self, in_transit: set[uuid.UUID]):
+        self.__update(in_transit=in_transit)
+
+    def __update(self, request: uuid.UUID | None = None, responses: dict[uuid.UUID, Response] | None = None, errors: dict[uuid.UUID, BaseException] | None = None, in_transit: set[uuid.UUID] | None = None):
         if responses is not None:
             request = self.active_request.get()
             response = None
@@ -78,12 +88,15 @@ class ResponseView(framed.Panel):
             if request:
                 response = responses.get(request)
                 error = self.errors.get().get(request)
+                self.loading.active = response is not None
             self.__update_editor_content(request, response, error)
         elif request is not None:
             responses = self.responses.get()
             errors = self.errors.get()
+            in_transit = self.in_transit.get()
             response = responses.get(request)
             error = errors.get(request)
+            self.loading.active = request in in_transit
             self.__update_editor_content(request, response, error)
         elif errors is not None:
             request = self.active_request.get()
@@ -94,6 +107,9 @@ class ResponseView(framed.Panel):
                 response = responses.get(request)
                 error = errors.get(request)
             self.__update_editor_content(request, response, error)
+        elif in_transit is not None:
+            request = self.active_request.get()
+            self.loading.active = request in in_transit
         else:
             self.response.set_text("")
 

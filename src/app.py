@@ -35,6 +35,7 @@ class AppContext(framed.context.Context):
     requests: dict[uuid.UUID, Request]
     responses: dict[uuid.UUID, Response]
     errors: dict[uuid.UUID, BaseException]
+    in_transit: set[uuid.UUID]
     active_collection: uuid.UUID | None
     active_request: uuid.UUID | None
     dirty_requests: set[uuid.UUID]
@@ -46,6 +47,7 @@ class AppContext(framed.context.Context):
         self.create_var("requests", {}, dict)
         self.create_var("responses", {}, dict)
         self.create_var("errors", {}, dict)
+        self.create_var("in_transit", set(), set)
         self.create_var("active_collection", None, uuid.UUID)
         self.create_var("active_request", None, uuid.UUID)
         self.create_var("dirty_requests", set(), set)
@@ -128,7 +130,7 @@ class App(framed.App[AppContext]):
         if action is not None:
             match action:
                 case AppAction.collections_focus:
-                    self.focus(self.collection_view.requests)
+                    self.focus(self.collection_view.request_box)
                 case AppAction.request_method:
                     self.focus(self.request_view.method)
                 case AppAction.request_url:
@@ -205,9 +207,9 @@ class App(framed.App[AppContext]):
             raise ValueError("No request is currently active.")
 
         with (
+            self.context.mutate("dirty_requests") as dirty_requests,
             self.context.mutate("requests") as requests,
             self.context.mutate("collections") as collections,
-            self.context.mutate("dirty_requests") as dirty_requests
         ):
             new_req = requests.value[active_request].copy()
             if name == new_req.name:
